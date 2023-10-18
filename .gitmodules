@@ -1,0 +1,4 @@
+[submodule "submodules/fennel"]
+	path = submodules/fennel
+	url = git@github.com:bakpakin/Fennel.git
+  ignore = dirty
