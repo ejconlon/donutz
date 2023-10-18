@@ -1,3 +1,3 @@
-# efl
+# donutz
 
-Like 8fl
+A Fennel-based environment for algorithmic composition

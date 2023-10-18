@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RenoiseScriptingTool doc_version="0">
+  <ApiVersion>6</ApiVersion>
+  <Id>com.example.donutz</Id>
+  <Version>0.1</Version>
+  <Author>http://github.com/ejconlon/donutz</Author>
+  <Name>donutz</Name>
+  <Description>
+    A Fennel-based environment for algorithmic composition
+  </Description>
+</RenoiseScriptingTool>
