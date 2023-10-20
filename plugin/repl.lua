@@ -22,6 +22,44 @@ function stringify(obj)
   return '#<' .. tostring(type(obj)) .. '>'
 end
 
+--- Read contents of a file into a string
+function fread(fn)
+  local f = io.open(fn, 'r')
+  io.input(f)
+  local buf = io.read('*all')
+  io.close(f)
+  io.input(io.stdin)
+  return buf
+end
+  
+--- Check if file exists
+function fexists(fn)
+   local f = io.open(fn, 'r')
+   local exists = f ~= nil
+   if exists then
+     io.close(f)
+   end
+   io.input(io.stdin)
+   return exists
+end
+
+--- Find a usable filename for the module or error out.
+function resolveModuleFileName(mod, fn)
+  if fn == nil then
+    local base = mod:gsub('%.', '/')
+    fn = base .. '.lua'
+    if not fexists(fn) then
+      fn = base .. '/init.fnl'
+    end
+  end
+
+  if not fexists(fn) then
+    error('Module ' .. mod .. ' not found at path ' .. fn .. '\n')
+  end
+
+  return fn
+end
+
 --- Lookup packages in the current environment and return
 -- tables suitable for constructing a new sub-environment.
 function lookupPkgs(pkgs)
@@ -38,8 +76,8 @@ function lookupPkgs(pkgs)
 end
 
 --- Create a new sub-environment.
-function mkEnv(write, pkgs, defns)
-  local loaded, locals = lookupPkgs(pkgs)
+function mkEnv(write, config)
+  local loaded, locals = lookupPkgs(config.pkgs)
 
   local env = {
     -- TODO what else should go in globals?
@@ -63,8 +101,8 @@ function mkEnv(write, pkgs, defns)
 
   -- TODO put require, reload, inline in env 
 
-  if defns ~= nil then
-    for k, v in pairs(defns) do
+  if config.defns ~= nil then
+    for k, v in pairs(config.defns) do
       if env[k] ~= nil then
         error('Duplicate environment key: ' .. k)
       else
@@ -112,20 +150,10 @@ function rawEval(write, env, buf, scope, shouldSplice, source)
 end
 
 --- Evaluate the module at the given file path
-function modEval(write, pkgs, defns, buf, fn)
-  local env = mkEnv(write, pkgs, defns)
+function modEval(write, config, buf, fn)
+  local env = mkEnv(write, config)
   local scope = compiler['make-scope']()
   return rawEval(write, env, buf, scope, false, fn)
-end
-
---- Read contents of a file into a string
-function fread(fn)
-  local f = io.open(fn, 'r')
-  io.input(f)
-  local buf = io.read('*all')
-  io.close(f)
-  io.input(io.stdin)
-  return buf
 end
 
 -- NOTE on Fennel REPL scope:
@@ -137,25 +165,26 @@ end
 -- env._G.package.loaded (map from module name to module defn)
 
 --- Require the given module with a sub-environment
-function rawRequire(write, pkgs, defns, env, mod, fn, reload)
+function rawRequire(write, config, env, mod, fn, reload)
   local res = env._G.package.loaded[mod]
   if reload or res == nil then
+    fn = resolveModuleFileName(mod, fn)
     local buf = fread(fn)
-    res = modEval(write, pkgs, defns, buf, fn)
+    res = modEval(write, config, buf, fn)
     env._G.package.loaded[mod] = res
   end
   return res
 end
 
 --- Import module with local name
-function rawImport(write, pkgs, defns, env, name, mod, fn, reload)
-  local res = rawRequire(write, pkgs, defns, env, mod, fn, reload)
+function rawImport(write, config, env, name, mod, fn, reload)
+  local res = rawRequire(write, config, env, mod, fn, reload)
   env.___replLocals___[name] = res
 end
 
 --- Inline module exports
-function rawInline(write, pkgs, defns, env, mod, fn, reload)
-  local res = rawRequire(write, pkgs, defns, env, mod, fn, reload)
+function rawInline(write, config, env, mod, fn, reload)
+  local res = rawRequire(write, config, env, mod, fn, reload)
   for k, v in pairs(res) do
     env.___replLocals___[k] = v
   end
@@ -166,7 +195,7 @@ function mkState(write, config)
   return {
     buf = '',
     scope = compiler['make-scope'](),
-    env = mkEnv(write, config.pkgs, config.defns)
+    env = mkEnv(write, config)
   }
 end
 
@@ -174,17 +203,17 @@ end
 function onStart(write, st, config)
   if config.imports ~= nil then
     for _, v in ipairs(config.imports) do
-      local ok, err = pcall(rawImport, write, config.pkgs, config.defns, st.env, v.name, v.mod, v.fn, false)
+      local ok, err = pcall(rawImport, write, config, st.env, v.name, v.mod, v.fn, false)
       if not ok then
-        write('Failed to import ' .. v.mod .. ' from ' .. v.fn .. ': ' .. err .. '\n')
+        write('Failed to import ' .. v.mod .. ': ' .. err .. '\n')
       end
     end
   end
   if config.inlines ~= nil then
     for _, v in ipairs(config.inlines) do
-      local ok, err = pcall(rawInline, write, config.pkgs, config.defns, st.env, v.mod, v.fn, false)
+      local ok, err = pcall(rawInline, write, config, st.env, v.mod, v.fn, false)
       if not ok then
-        write('Failed to inline ' .. v.mod .. ' from ' .. v.fn .. ': ' .. err .. '\n')
+        write('Failed to inline ' .. v.mod .. ': ' .. err .. '\n')
       end
     end
   end

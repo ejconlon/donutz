@@ -61,10 +61,10 @@ function main()
       rprint = _G.rprint,
     },
     imports = {
-      { name = 'z', mod = 'z', fn = 'z/init.fnl' },
+      { name = 'z', mod = 'z' },
     },
     inlines = {
-      { mod = 'z', fn = 'z/init.fnl' },
+      { mod = 'z' },
     },
   }
   if _G.renoise == nil then
