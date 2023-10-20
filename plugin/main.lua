@@ -74,7 +74,7 @@ function replOnError(write, errtype, err, luaSource)
 end
 
 function replStart(write)
-  write('>> ')
+  write('ooo donutz ooo\n>> ')
 end
 
 -- Given buffer, return true if ready to evaluate input
@@ -276,7 +276,7 @@ function main()
   else
     local prefs = renoise.tool().preferences
     if prefs == nil then
-      prefs = renoise.Document.create('donutzPrefs') {
+      prefs = renoise.Document.create('preferences') {
         hostname = '0.0.0.0',
         port = 9876
       }
