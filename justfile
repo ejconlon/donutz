@@ -4,8 +4,10 @@ default:
 repl:
   cd plugin && rlwrap lua main.lua
 
+# rlwrap makes telnet escapes difficult
+# otherwise telnet 127.0.0.1 9876 works ok but lacks readline/EOF handling
 remote:
-  rlwrap telnet 127.0.0.1 9876
+  socat READLINE,history=$HOME/.telnet_history TCP:127.0.0.1:9876
 
 compile-fennel-mod name:
   cd submodules/fennel/src && fennel --compile fennel/{{name}}.fnl > ../../../plugin/fennel/{{name}}.lua

@@ -219,20 +219,29 @@ function replLocal()
   end
 end
 
+function renoiseStatus(msg)
+  renoise.app():show_status('Z: ' .. msg)
+end
+
+function renoiseWarning(msg)
+  renoise.app():show_warning('Z: ' .. msg)
+end
+
 function onSocketError(err)
-  renoise.app():show_status('Z: ' .. tostring(err))
+  renoiseStatus(tostring(err))
 end
 
 function onSocketAccepted(sst)
   return function(socket)
     local ix = socket.peer_port
-    renoise.app():show_status('Z: Connnected ' .. tostring(ix))
+    renoiseStatus('Connnected ' .. tostring(ix))
     local write = function(data)
       socket:send(data)
     end
     local st = mkReplState(write, { renoise = renoise })
     local conn = { write = write, st = st }
     sst.conns[ix] = conn
+    replStart(write)
   end
 end
 
@@ -241,19 +250,10 @@ function onSocketMessage(sst)
     local ix = socket.peer_port
     local conn = sst.conns[ix]
     if conn == nil then
-      renoise.app():show_status('Z: Zombie ' .. tostring(ix))
+      renoiseStatus('Zombie ' .. tostring(ix))
       return
     else
-      -- Recv EOF to request disconnect
-      local isEof = inp:sub(-1) == '\04'
-      if isEof then
-        -- TODO figure this out - close ruins the socket
-        -- sst.conns[ix] = nil
-        -- socket:close()
-        -- renoise.app():show_status('Z: Disconnected ' .. tostring(ix))
-      else
-        replInp(conn.write, conn.st, inp)
-      end
+      replInp(conn.write, conn.st, inp)
     end
   end
 end
@@ -261,7 +261,7 @@ end
 function onUnload(sst)
   return function()
     if sst.server ~= nil then
-      renoise.app():show_status('Z: Shutting down server')
+      renoiseStatus('Shutting down server')
       sst.server:stop()
       sst.server:close()
       sst.server = nil
@@ -289,7 +289,7 @@ function main()
     local server, err = renoise.Socket.create_server(prefs.hostname.value, prefs.port.value)
 
     if err then
-      renoise.app():show_warning('Z: ' .. tostring(err))
+      renoiseWarning(tostring(err))
     else
       sst.server = server
       local serverConf = {
@@ -297,7 +297,7 @@ function main()
         socket_accepted = onSocketAccepted(sst),
         socket_message = onSocketMessage(sst),
       }
-      renoise.app():show_status('Z: Starting server')
+      renoiseStatus('Starting server')
       sst.server:run(serverConf)
     end
   end
