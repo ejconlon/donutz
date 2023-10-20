@@ -20,4 +20,5 @@ compile-fennel:
   just compile-fennel-mod specials
   just compile-fennel-mod utils
   just compile-fennel-mod view
+  cp submodules/fennel/LICENSE plugin/fennel
 
