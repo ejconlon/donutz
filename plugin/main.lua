@@ -18,73 +18,63 @@ function stringify(obj)
   return '#<' .. tostring(type(obj)) .. '>'
 end
 
-function mkReplState(ioif)
-  return {
-    cont = false,
-    buf = '',
-    scope = compiler['make-scope'](),
-    env = specials['wrap-env'] {
+function mkReplState(write, addl)
+  local env0 = { {
       _G = _G,
-      renoise = _G.renoise,
       print = function(...)
         local first = true
+        local output = ''
         for i, v in ipairs(arg) do
-          ioif.write(stringify(v))
+          output = output .. stringify(v)
           if first then
             first = false
           else
-            ioif.write('\t')
+            output = output .. '\t'
           end
         end
-        ioif.write('\n')
+        output = output .. '\n'
+        write(output)
       end,
     }
-  }
-end
-
-function mkLocalIOIF()
+  } 
+  if addl ~= nil then
+    for k, v in pairs(addl) do
+      if env0[k] ~= nil then
+        error('Duplicate environment key: ' .. k)
+      else
+        env0[k] = v
+      end
+    end
+  end
   return {
-    write = io.write,
-    flush = io.flush,
+    buf = '',
+    scope = compiler['make-scope'](),
+    env = specials['wrap-env'](env0),
   }
 end
 
-function mkSocketIOIF(socket)
-  return {
-    write = function(data)
-      socket:send(data)
-    end,
-    flush = function()
-    end,
-  }
+function replOnValues(write, xs)
+  write(table.concat(xs, '\t') .. '\n')
 end
 
-function replOnValues(ioif, xs)
-  ioif.write(table.concat(xs, '\t'))
-  ioif.write('\n')
-  ioif.flush()
-end
-
-function replOnError(ioif, errtype, err, luaSource)
-  local message
+function replOnError(write, errtype, err, luaSource)
+  local output 
   if errtype == 'Lua Compile' then
     message = 
       'Bad code generated - likely a bug with the compiler:\n' ..
       '--- Generated Lua Start ---\n' ..
       luaSource .. '\n' ..
       '--- Generated Lua End ---\n'
-  elseif message == 'Runtime' then
-    message = compiler.traceback(stringify(err), 4) .. '\n'
+  elseif errtype == 'Runtime' then
+    output = compiler.traceback(stringify(err), 4) .. '\n'
   else
-    message = string.format('%s error: %s\n', errtype, stringify(err))
+    output = string.format('%s error: %s\n', errtype, stringify(err))
   end
-  ioif.write(message)
-  ioif.flush()
+  write(output)
 end
 
-function replStart(ioif)
-  ioif.write('>> ')
-  ioif.flush()
+function replStart(write)
+  write('>> ')
 end
 
 -- Given buffer, return true if ready to evaluate input
@@ -159,9 +149,9 @@ function replEval(st)
     if not ok then
         error('Failed to compile ' .. code)
     end
-    print('---')
-    print(code)
-    print('---')
+    -- print('---')
+    -- print(code)
+    -- print('---')
     local f, err
     if _G.loadstring then
       f, err = loadstring(code)
@@ -181,36 +171,70 @@ function replEval(st)
     return result
 end
 
-function replStep(ioif, st)
+function replStep(write, st)
+  local output = ''
   if isReady(st.buf) then
     local ok, result = pcall(replEval, st)
     st.buf = '' 
     if ok then
-      if result ~= nil then
-        ioif.write(stringify(result))
-      end
+      output = output .. stringify(result)
     else
-      ioif.write('Error: ') 
-      ioif.write(result)
+      output = output .. 'Error: ' .. result
     end
-    ioif.write('\n>> ')
+    output = output .. '\n>> '
   else
-    ioif.write('..')
+    output = output .. '..'
   end
-  ioif.flush()
+  write(output)
+end
+
+function replInp(write, st, inp)
+  if #inp > 0 then
+    st.buf = st.buf .. inp .. '\n'
+    replStep(write, st)
+  end
 end
 
 function replLocal()
-  local ioif = mkLocalIOIF()
-  local st = mkReplState(ioif)
-  replStart(ioif)
+  local write = io.write
+  local st = mkReplState(write, { renoise = nil })
+  replStart(write)
   local inp = io.read()
   while inp ~= nil do
-    if #inp > 0 then
-      st.buf = st.buf .. inp .. '\n'
-      replStep(ioif, st)
-    end
+    replInp(write, st, inp)
     inp = io.read()
+  end
+end
+
+function onSocketError(err)
+  renoise.app():show_status('Z: ' .. tostring(err))
+end
+
+function onSocketAccepted(conns)
+  return function(socket)
+    local ix = socket.peer_port
+    renoise.app():show_status('Z: Connnected to ' .. tostring(ix))
+    local write = function(data)
+      socket:send(data)
+    end
+    local st = mkReplState(write, { renoise = renoise })
+    local conn = { write = write, st = st }
+    conns[ix] = conn
+  end
+end
+
+function onSocketMessage(conns)
+  return function(socket, inp)
+    local ix = socket.peer_port
+    local conn = conns[ix]
+    replInp(conn.write, conn.st, inp)
+  end
+end
+
+function onUnload(server)
+  return function()
+    renoise.app():show_status('Z: Shutting down server')
+    server:stop()
   end
 end
 
@@ -227,58 +251,21 @@ function main()
       }
       renoise.tool().preferences = prefs
     end
-    -- local server, err = renoise.Socket.create_server(prefs.hostname.value, prefs.port.value)
-    -- if err then
-    --   renoise.app():show_warning('Z: ' .. tostring(err))
-    --   return
-    -- else
-    --   renoise.tool().tool_will_unload_observable:add_notifier(onUnload(server))
-    --   local conns = {}
-    --   local serverConf = {
-    --     socket_error = onSocketError,
-    --     socket_accepted = onSocketAccepted(conns),
-    --     socket_message = onSocketMessage(conns),
-    --   }
-    --   server:run(serverConf)
-    -- end
+    local server, err = renoise.Socket.create_server(prefs.hostname.value, prefs.port.value)
+    if err then
+      renoise.app():show_warning('Z: ' .. tostring(err))
+      return
+    else
+      renoise.tool().tool_will_unload_observable:add_notifier(onUnload(server))
+      local conns = {}
+      local serverConf = {
+        socket_error = onSocketError,
+        socket_accepted = onSocketAccepted(conns),
+        socket_message = onSocketMessage(conns),
+      }
+      server:run(serverConf)
+    end
   end
 end
 
 main()
-
--- function onSocketError(err)
---   renoise.app():show_status('Z: ' .. tostring(err))
--- end
---
--- function onSocketAccepted(conns)
---   return function(socket)
---     local ix = socket.peer_port
---     renoise.app():show_status('Z: Connnected to ' .. tostring(socket.peer_port))
---     socket:send('ooo donutz ooo\n> ')
---     conns[ix] = { buf = '', coro = mkCoro(socket) }
---   end
--- end
---
--- function onSocketMessage(conns)
---   return function(socket, inp)
---     local ix = socket.peer_port
---     local buf = appendInput(conns[ix].buf, inp) 
---     while true do
---       local sexp, rest = consumeSexp(buf)
---       if sexp == nil then
---         conns[ix].buf = rest
---         break
---       else
---         buf = rest
---         coroutine.resume(conns[ix].coro, sexp)
---       end
---     end
---   end
--- end
---
--- function onUnload(server)
---   return function()
---     renoise.app():show_status('Z: Shutting down server')
---     server:stop()
---   end
--- end
