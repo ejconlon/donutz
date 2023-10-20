@@ -144,14 +144,27 @@ function isReady(buf)
   return depth == 0 or state ~= 'normal'
 end
 
-function replEval(st)
+function replEval(write, st)
+    write('--- BUF  ---\n')
+    for i = 1, #st.buf do
+      local c = st.buf:sub(i,i)
+      local d = string.byte(c)
+      if c == '\n' then
+        c = ' '
+        d = '<NEWLINE>'
+      elseif c == ' ' then
+        c = ' '
+        d = '<SPACE>'
+      end
+      write(tostring(i) .. '\t' .. c .. '\t' .. d .. '\n')
+    end
     local ok, code = pcall(compiler['compile-string'], st.buf, { scope = st.scope })
     if not ok then
         error('Failed to compile ' .. code)
     end
-    -- print('---')
-    -- print(code)
-    -- print('---')
+    write('--- CODE ---\n')
+    write(code .. '\n')
+    write('------------\n')
     local f, err
     if _G.loadstring then
       f, err = loadstring(code)
@@ -174,7 +187,7 @@ end
 function replStep(write, st)
   local output = ''
   if isReady(st.buf) then
-    local ok, result = pcall(replEval, st)
+    local ok, result = pcall(replEval, write, st)
     st.buf = '' 
     if ok then
       output = output .. stringify(result)
@@ -210,31 +223,49 @@ function onSocketError(err)
   renoise.app():show_status('Z: ' .. tostring(err))
 end
 
-function onSocketAccepted(conns)
+function onSocketAccepted(sst)
   return function(socket)
     local ix = socket.peer_port
-    renoise.app():show_status('Z: Connnected to ' .. tostring(ix))
+    renoise.app():show_status('Z: Connnected ' .. tostring(ix))
     local write = function(data)
       socket:send(data)
     end
     local st = mkReplState(write, { renoise = renoise })
     local conn = { write = write, st = st }
-    conns[ix] = conn
+    sst.conns[ix] = conn
   end
 end
 
-function onSocketMessage(conns)
+function onSocketMessage(sst)
   return function(socket, inp)
     local ix = socket.peer_port
-    local conn = conns[ix]
-    replInp(conn.write, conn.st, inp)
+    local conn = sst.conns[ix]
+    if conn == nil then
+      renoise.app():show_status('Z: Zombie ' .. tostring(ix))
+      return
+    else
+      -- Recv EOF to request disconnect
+      local isEof = inp:sub(-1) == '\04'
+      if isEof then
+        -- TODO figure this out - close ruins the socket
+        -- sst.conns[ix] = nil
+        -- socket:close()
+        -- renoise.app():show_status('Z: Disconnected ' .. tostring(ix))
+      else
+        replInp(conn.write, conn.st, inp)
+      end
+    end
   end
 end
 
-function onUnload(server)
+function onUnload(sst)
   return function()
-    renoise.app():show_status('Z: Shutting down server')
-    server:stop()
+    if sst.server ~= nil then
+      renoise.app():show_status('Z: Shutting down server')
+      sst.server:stop()
+      sst.server:close()
+      sst.server = nil
+    end
   end
 end
 
@@ -251,19 +282,23 @@ function main()
       }
       renoise.tool().preferences = prefs
     end
+
+    local sst = { server = nil, conns = {} }
+    renoise.tool().tool_will_unload_observable:add_notifier(onUnload(sst))
+
     local server, err = renoise.Socket.create_server(prefs.hostname.value, prefs.port.value)
+
     if err then
       renoise.app():show_warning('Z: ' .. tostring(err))
-      return
     else
-      renoise.tool().tool_will_unload_observable:add_notifier(onUnload(server))
-      local conns = {}
+      sst.server = server
       local serverConf = {
         socket_error = onSocketError,
-        socket_accepted = onSocketAccepted(conns),
-        socket_message = onSocketMessage(conns),
+        socket_accepted = onSocketAccepted(sst),
+        socket_message = onSocketMessage(sst),
       }
-      server:run(serverConf)
+      renoise.app():show_status('Z: Starting server')
+      sst.server:run(serverConf)
     end
   end
 end
