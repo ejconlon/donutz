@@ -69,7 +69,7 @@ function lookupPkgs(pkgs)
     for _, v in ipairs(pkgs) do
       local contents = _G.package.loaded[v.mod]
       loaded[v.mod] = contents
-      locals[v.name] = contents
+      locals[compiler['global-mangling'](v.name)] = contents
     end
   end
   return loaded, locals
@@ -104,6 +104,8 @@ function mkEnv(write, config)
   end
 
   env.reload = function()
+    -- TODO set pkgs and defns again?
+    
     if config.imports ~= nil then
       for _, v in ipairs(config.imports) do
         write('Re-importing ' .. v.mod .. '... ')
@@ -111,6 +113,7 @@ function mkEnv(write, config)
         write('Done\n')
       end
     end
+
     if config.inlines ~= nil then
       for _, v in ipairs(config.inlines) do
         write('Re-inlining ' .. v.mod .. '... ')
@@ -198,14 +201,14 @@ end
 --- Import module with local name
 function rawImport(write, config, env, name, mod, fn, reload)
   local res = rawRequire(write, config, env, mod, fn, reload)
-  env.___replLocals___[name] = res
+  env.___replLocals___[compiler['global-mangling'](name)] = res
 end
 
 --- Inline module exports
 function rawInline(write, config, env, mod, fn, reload)
   local res = rawRequire(write, config, env, mod, fn, reload)
   for k, v in pairs(res) do
-    env.___replLocals___[k] = v
+    env.___replLocals___[compiler['global-mangling'](k)] = v
   end
 end
 

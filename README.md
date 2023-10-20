@@ -2,6 +2,11 @@
 
 A Fennel-based environment for algorithmic composition
 
+## Prior work
+
+This project is based on [8fl](https://git.sr.ht/~nasser/8fl), using some
+of the same interfaces and concepts, but with a different implementation.
+
 ## Installation and Use
 
 Given Renoise version `X.Y.Z` (like `3.4.2`):
@@ -16,10 +21,6 @@ Then reload your Renoise plugins. Access the REPL hosted in Renoise with
 However, you will probably enjoy the experience more with `socat`:
 
     socat READLINE,history=$HOME/.telnet_history TCP:127.0.0.1:9876
-
-## Prior work
-
-This project is based on [8fl](https://git.sr.ht/~nasser/8fl).
 
 ## License
 
