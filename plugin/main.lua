@@ -12,17 +12,17 @@ function onSocketError(err)
   renoiseStatus(tostring(err))
 end
 
-function onSocketAccepted(sst)
+function onSocketAccepted(sst, config)
   return function(socket)
     local ix = socket.peer_port
     renoiseStatus('Connnected ' .. tostring(ix))
     local write = function(data)
       socket:send(data)
     end
-    local st = repl.mkState(write, { renoise = renoise })
+    local st = repl.mkState(write, config)
     local conn = { write = write, st = st }
     sst.conns[ix] = conn
-    repl.onStart(write, st)
+    repl.onStart(write, st, config)
   end
 end
 
@@ -51,17 +51,25 @@ function onUnload(sst)
 end
 
 function main()
-  local pkgs = repl.STDLIB_PKGS
-  local defns = { renoise = _G.renoise }
-  local imports = {
-    { name = 'z', mod = 'z', fn = 'z/init.fnl' },
-  }
-  local inlines = {
-    { mod = 'z', fn = 'z/init.fnl' },
+  local config = {
+    pkgs = {
+      { name = 'string', mod = 'string' },
+    },
+    defns = {
+      renoise = _G.renoise,
+      oprint = _G.oprint,
+      rprint = _G.rprint,
+    },
+    imports = {
+      { name = 'z', mod = 'z', fn = 'z/init.fnl' },
+    },
+    inlines = {
+      { mod = 'z', fn = 'z/init.fnl' },
+    },
   }
   if _G.renoise == nil then
     -- Just a regular repl - note that renoisey things will not work
-    repl.run(pkgs, defns, imports, inlines)
+    repl.run(config)
   else
     -- TODO fixup renoise repl
     local prefs = renoise.tool().preferences
@@ -84,7 +92,7 @@ function main()
       sst.server = server
       local serverConf = {
         socket_error = onSocketError,
-        socket_accepted = onSocketAccepted(sst),
+        socket_accepted = onSocketAccepted(sst, config),
         socket_message = onSocketMessage(sst),
       }
       renoiseStatus('Starting server')
