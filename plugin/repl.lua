@@ -99,7 +99,26 @@ function mkEnv(write, config)
     end,
   }
 
-  -- TODO put require, reload, inline in env 
+  env.require = function(mod)
+    return rawRequire(write, config, env, mod, nil, false)
+  end
+
+  env.reload = function()
+    if config.imports ~= nil then
+      for _, v in ipairs(config.imports) do
+        write('Re-importing ' .. v.mod .. '... ')
+        rawImport(write, config, env, v.name, v.mod, v.fn, true)
+        write('Done\n')
+      end
+    end
+    if config.inlines ~= nil then
+      for _, v in ipairs(config.inlines) do
+        write('Re-inlining ' .. v.mod .. '... ')
+        rawInline(write, config, env, v.mod, v.fn, true)
+        write('Done\n')
+      end
+    end
+  end
 
   if config.defns ~= nil then
     for k, v in pairs(config.defns) do
@@ -199,7 +218,7 @@ function mkState(write, config)
   }
 end
 
---- Cal on REPL start
+--- Call on REPL start
 function onStart(write, st, config)
   if config.imports ~= nil then
     for _, v in ipairs(config.imports) do
@@ -291,23 +310,21 @@ end
 
 --- Call on additional input
 function onInput(write, st, inp)
+  local output = '..'
   if #inp > 0 then
     st.buf = st.buf .. inp .. '\n'
-    local output = ''
     if isReady(st.buf) then
       local ok, result = pcall(rawEval, write, st.env, st.buf, st.scope, true)
       st.buf = '' 
       if ok then
-        output = output .. stringify(result)
+        output = stringify(result)
       else
-        output = output .. 'Error: ' .. result
+        output = 'Error: ' .. result
       end
       output = output .. '\n>> '
-    else
-      output = output .. '..'
     end
-    write(output)
   end
+  write(output)
 end
 
 --- Run a local repl
