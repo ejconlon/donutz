@@ -22,7 +22,7 @@ function onSocketAccepted(sst)
     local st = repl.mkState(write, { renoise = renoise })
     local conn = { write = write, st = st }
     sst.conns[ix] = conn
-    repl.onStart(write)
+    repl.onStart(write, st)
   end
 end
 

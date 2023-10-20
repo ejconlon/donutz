@@ -24,3 +24,12 @@ compile-fennel:
   just compile-fennel-mod utils
   just compile-fennel-mod view
 
+compile-vendor-mod name:
+  cd vendor && fennel --compile {{name}}.fnl > ../plugin/vendor/{{name}}.lua
+
+compile-vendor:
+  rm -rf plugin/vendor
+  mkdir plugin/vendor
+  just compile-vendor-mod splice
+
+compile-deps: compile-fennel compile-vendor

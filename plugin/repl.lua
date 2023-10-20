@@ -5,6 +5,7 @@ local repl = require('fennel.repl')
 local view = require('fennel.view')
 local compiler = require('fennel.compiler')
 local specials = require('fennel.specials')
+local splice = require('vendor.splice')
 
 -- From 8fl - try fennel.view to render to string,
 -- but fallback gracefully to tostring and type output
@@ -21,23 +22,25 @@ function stringify(obj)
 end
 
 function mkState(write, addl)
-  local env0 = { {
-      _G = _G,
-      print = function(...)
-        local first = true
-        local output = ''
-        for i, v in ipairs(arg) do
-          output = output .. stringify(v)
-          if first then
-            first = false
-          else
-            output = output .. '\t'
-          end
+  local env0 = {
+    -- TODO what should go in globals?
+    -- _G = _G,
+    _G = {},
+    ___replLocals___ = {},
+    print = function(...)
+      local first = true
+      local output = ''
+      for i, v in ipairs(arg) do
+        output = output .. stringify(v)
+        if first then
+          first = false
+        else
+          output = output .. '\t'
         end
-        output = output .. '\n'
-        write(output)
-      end,
-    }
+      end
+      output = output .. '\n'
+      write(output)
+    end,
   } 
   if addl ~= nil then
     for k, v in pairs(addl) do
@@ -53,6 +56,22 @@ function mkState(write, addl)
     scope = compiler['make-scope'](),
     env = specials['wrap-env'](env0),
   }
+end
+
+-- locals in
+-- env.___replLocals___
+--
+-- modules in
+-- env._G.package.loaded (map from module name to module defn)
+
+-- Import module with local name
+function import(st, name, mod)
+  -- TODO 
+end
+
+-- Inline module exports
+function inline(st, mod)
+  -- TODO 
 end
 
 -- Given buffer, return true if ready to evaluate input.
@@ -129,17 +148,18 @@ function eval(write, st)
     if not ok then
         error('Failed to compile ' .. code)
     end
+    local spliced = splice(st.env, code, st.scope)
     local f, err
     if _G.loadstring then
-      f, err = loadstring(code)
+      f, err = loadstring(spliced)
       if not err then
         setfenv(f, st.env)
       end
     else
-      f, err = load(code, code, 't', st.env)
+      f, err = load(spliced, spliced, 't', st.env)
     end
     if err then
-        error('Failed to load ' .. code .. ' error: ' .. err)
+        error('Failed to load ' .. spliced .. ' error: ' .. err)
     end
     local ok, result = pcall(f)
     if not ok then
@@ -148,7 +168,17 @@ function eval(write, st)
     return result
 end
 
-function onStart(write)
+function onStart(write, st, imports, inlines)
+  if imports ~= nil then
+    for k, v in pairs(imports) do
+      import(st, k, v)
+    end
+  end
+  if inlines ~= nil then
+    for _, v in ipairs(inlines) do
+      inline(st, v)
+    end
+  end
   write('ooo donutz ooo\n>> ')
 end
 
@@ -176,18 +206,19 @@ function onInput(write, st, inp)
   end
 end
 
-function run(addl)
-  local write = io.write
-  local st = mkState(write, addl)
-  onStart(write)
+function run(addl, imports, inlines)
+  local st = mkState(io.write, addl)
+  onStart(io.write, st, imports, inlines)
   local inp = io.read()
   while inp ~= nil do
-    onInput(write, st, inp)
+    onInput(io.write, st, inp)
     inp = io.read()
   end
 end
 
 return {
+  import = import,
+  inline = inline,
   stringify = stringify,
   mkState = mkState,
   onStart = onStart,
