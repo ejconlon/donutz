@@ -11,7 +11,11 @@ Given Renoise version `X.Y.Z` (like `3.4.2`):
 
 Then reload your Renoise plugins. Access the REPL hosted in Renoise with
 
-    telnet localhost 9876
+    telnet 127.0.0.1 9876
+
+However, you will probably enjoy the experience more with `socat`:
+
+    socat READLINE,history=$HOME/.telnet_history TCP:127.0.0.1:9876
 
 ## Prior work
 
