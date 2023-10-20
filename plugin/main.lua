@@ -54,11 +54,13 @@ function main()
   local config = {
     pkgs = {
       { name = 'string', mod = 'string' },
+      { name = 'table', mod = 'table' },
     },
     defns = {
       renoise = _G.renoise,
-      oprint = _G.oprint,
-      rprint = _G.rprint,
+      -- TODO Why don't these behave well
+      -- oprint = _G.oprint,
+      -- rprint = _G.rprint,
     },
     imports = {
       { name = 'z', mod = 'z' },
