@@ -1,5 +1,5 @@
 local view = require("fennel.view")
-local version = "1.4.0-dev"
+local version = "1.3.1"
 local function luajit_vm_3f()
   return ((nil ~= _G.jit) and (type(_G.jit) == "table") and (nil ~= _G.jit.on) and (nil ~= _G.jit.off) and (type(_G.jit.version_num) == "number"))
 end
@@ -493,8 +493,7 @@ local function quoted_3f(symbol)
   return symbol.quoted
 end
 local function idempotent_expr_3f(x)
-  local t = type(x)
-  return ((t == "string") or (t == "integer") or (t == "number") or (t == "boolean") or (sym_3f(x) and not multi_sym_3f(x)))
+  return ((type(x) == "string") or (type(x) == "integer") or (type(x) == "number") or (sym_3f(x) and not multi_sym_3f(x)))
 end
 local function ast_source(ast)
   if (table_3f(ast) or sequence_3f(ast)) then

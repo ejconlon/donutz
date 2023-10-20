@@ -998,10 +998,6 @@ local function compile_asts(asts, options)
     scope.specials.require = require_include
   else
   end
-  if opts.assertAsRepl then
-    scope.macros.assert = scope.macros["assert-repl"]
-  else
-  end
   do end (function(tgt, m, ...) return tgt[m](tgt, ...) end)(utils.root, "set-reset")
   utils.root.chunk, utils.root.scope, utils.root.options = chunk, scope, opts
   for i = 1, #asts do
@@ -1056,14 +1052,14 @@ local function traceback_frame(info)
     else
     end
     if (info.what == "Lua") then
-      local function _135_()
+      local function _134_()
         if info.name then
           return ("'" .. info.name .. "'")
         else
           return "?"
         end
       end
-      return string.format("  %s:%d: in function %s", info.short_src, info.currentline, _135_())
+      return string.format("  %s:%d: in function %s", info.short_src, info.currentline, _134_())
     elseif (info.short_src == "(tail call)") then
       return "  (tail call)"
     else
@@ -1087,11 +1083,11 @@ local function traceback(_3fmsg, _3fstart)
     local done_3f, level = false, (_3fstart or 2)
     while not done_3f do
       do
-        local _139_ = debug.getinfo(level, "Sln")
-        if (_139_ == nil) then
+        local _138_ = debug.getinfo(level, "Sln")
+        if (_138_ == nil) then
           done_3f = true
-        elseif (nil ~= _139_) then
-          local info = _139_
+        elseif (nil ~= _138_) then
+          local info = _138_
           table.insert(lines, traceback_frame(info))
         else
         end
@@ -1102,14 +1098,14 @@ local function traceback(_3fmsg, _3fstart)
   end
 end
 local function entry_transform(fk, fv)
-  local function _142_(k, v)
+  local function _141_(k, v)
     if (type(k) == "number") then
       return k, fv(v)
     else
       return fk(k), fv(v)
     end
   end
-  return _142_
+  return _141_
 end
 local function mixed_concat(t, joiner)
   local seen = {}
@@ -1155,10 +1151,10 @@ local function do_quote(form, scope, parent, runtime_3f)
     return res[1]
   elseif utils["list?"](form) then
     local mapped
-    local function _147_()
+    local function _146_()
       return nil
     end
-    mapped = utils.kvmap(form, entry_transform(_147_, q))
+    mapped = utils.kvmap(form, entry_transform(_146_, q))
     local filename
     if form.filename then
       filename = string.format("%q", form.filename)
@@ -1176,13 +1172,13 @@ local function do_quote(form, scope, parent, runtime_3f)
     else
       filename = "nil"
     end
-    local _150_
+    local _149_
     if source then
-      _150_ = source.line
+      _149_ = source.line
     else
-      _150_ = "nil"
+      _149_ = "nil"
     end
-    return string.format("setmetatable({%s}, {filename=%s, line=%s, sequence=%s})", mixed_concat(mapped, ", "), filename, _150_, "(getmetatable(sequence()))['sequence']")
+    return string.format("setmetatable({%s}, {filename=%s, line=%s, sequence=%s})", mixed_concat(mapped, ", "), filename, _149_, "(getmetatable(sequence()))['sequence']")
   elseif (type(form) == "table") then
     local mapped = utils.kvmap(form, entry_transform(q, q))
     local source = getmetatable(form)
@@ -1192,14 +1188,14 @@ local function do_quote(form, scope, parent, runtime_3f)
     else
       filename = "nil"
     end
-    local function _153_()
+    local function _152_()
       if source then
         return source.line
       else
         return "nil"
       end
     end
-    return string.format("setmetatable({%s}, {filename=%s, line=%s})", mixed_concat(mapped, ", "), filename, _153_())
+    return string.format("setmetatable({%s}, {filename=%s, line=%s})", mixed_concat(mapped, ", "), filename, _152_())
   elseif (type(form) == "string") then
     return serialize_string(form)
   else

@@ -94,10 +94,7 @@ local function parser_fn(getbyte, filename, _11_)
     else
       r = getbyte({["stack-size"] = #stack})
     end
-    if r then
-      byteindex = (byteindex + 1)
-    else
-    end
+    byteindex = (byteindex + 1)
     if (r and char_starter_3f(r)) then
       col = (col + 1)
     else
@@ -109,15 +106,15 @@ local function parser_fn(getbyte, filename, _11_)
     return r
   end
   local function whitespace_3f(b)
-    local function _19_()
-      local t_20_ = options.whitespace
-      if (nil ~= t_20_) then
-        t_20_ = (t_20_)[b]
+    local function _18_()
+      local t_19_ = options.whitespace
+      if (nil ~= t_19_) then
+        t_19_ = (t_19_)[b]
       else
       end
-      return t_20_
+      return t_19_
     end
-    return ((b == 32) or ((9 <= b) and (b <= 13)) or _19_())
+    return ((b == 32) or ((9 <= b) and (b <= 13)) or _18_())
   end
   local function parse_error(msg, _3fcol_adjust)
     local col0 = (col + (_3fcol_adjust or -1))
@@ -139,25 +136,25 @@ local function parser_fn(getbyte, filename, _11_)
       return nil
     end
     local function dispatch(v)
-      local _24_ = stack[#stack]
-      if (_24_ == nil) then
+      local _23_ = stack[#stack]
+      if (_23_ == nil) then
         retval, done_3f, whitespace_since_dispatch = v, true, false
         return nil
-      elseif ((_G.type(_24_) == "table") and (nil ~= (_24_).prefix)) then
-        local prefix = (_24_).prefix
+      elseif ((_G.type(_23_) == "table") and (nil ~= (_23_).prefix)) then
+        local prefix = (_23_).prefix
         local source0
         do
-          local _25_ = table.remove(stack)
-          set_source_fields(_25_)
-          source0 = _25_
+          local _24_ = table.remove(stack)
+          set_source_fields(_24_)
+          source0 = _24_
         end
         local list = utils.list(utils.sym(prefix, source0), v)
         for k, v0 in pairs(source0) do
           list[k] = v0
         end
         return dispatch(list)
-      elseif (nil ~= _24_) then
-        local top = _24_
+      elseif (nil ~= _23_) then
+        local top = _23_
         whitespace_since_dispatch = false
         return table.insert(top, v)
       else
@@ -166,13 +163,13 @@ local function parser_fn(getbyte, filename, _11_)
     end
     local function badend()
       local accum = utils.map(stack, "closer")
-      local _27_
+      local _26_
       if (#stack == 1) then
-        _27_ = ""
+        _26_ = ""
       else
-        _27_ = "s"
+        _26_ = "s"
       end
-      return parse_error(string.format("expected closing delimiter%s %s", _27_, string.char(unpack(accum))))
+      return parse_error(string.format("expected closing delimiter%s %s", _26_, string.char(unpack(accum))))
     end
     local function skip_whitespace(b)
       if (b and whitespace_3f(b)) then
@@ -186,11 +183,11 @@ local function parser_fn(getbyte, filename, _11_)
     end
     local function parse_comment(b, contents)
       if (b and (10 ~= b)) then
-        local function _30_()
+        local function _29_()
           table.insert(contents, string.char(b))
           return contents
         end
-        return parse_comment(getb(), _30_())
+        return parse_comment(getb(), _29_())
       elseif comments then
         ungetb(10)
         return dispatch(utils.comment(table.concat(contents), {line = line, filename = filename}))
@@ -220,12 +217,12 @@ local function parser_fn(getbyte, filename, _11_)
       return dispatch(setmetatable(tbl, mt))
     end
     local function add_comment_at(comments0, index, node)
-      local _34_ = (comments0)[index]
-      if (nil ~= _34_) then
-        local existing = _34_
+      local _33_ = (comments0)[index]
+      if (nil ~= _33_) then
+        local existing = _33_
         return table.insert(existing, node)
       elseif true then
-        local _ = _34_
+        local _ = _33_
         comments0[index] = {node}
         return nil
       else
@@ -312,16 +309,16 @@ local function parser_fn(getbyte, filename, _11_)
       end
       local state0
       do
-        local _45_ = {state, b}
-        if ((_G.type(_45_) == "table") and ((_45_)[1] == "base") and ((_45_)[2] == 92)) then
+        local _44_ = {state, b}
+        if ((_G.type(_44_) == "table") and ((_44_)[1] == "base") and ((_44_)[2] == 92)) then
           state0 = "backslash"
-        elseif ((_G.type(_45_) == "table") and ((_45_)[1] == "base") and ((_45_)[2] == 34)) then
+        elseif ((_G.type(_44_) == "table") and ((_44_)[1] == "base") and ((_44_)[2] == 34)) then
           state0 = "done"
-        elseif ((_G.type(_45_) == "table") and ((_45_)[1] == "backslash") and ((_45_)[2] == 10)) then
+        elseif ((_G.type(_44_) == "table") and ((_44_)[1] == "backslash") and ((_44_)[2] == 10)) then
           table.remove(chars, (#chars - 1))
           state0 = "base"
         elseif true then
-          local _ = _45_
+          local _ = _44_
           state0 = "base"
         else
           state0 = nil
@@ -346,11 +343,11 @@ local function parser_fn(getbyte, filename, _11_)
       table.remove(stack)
       local raw = table.concat(chars)
       local formatted = raw:gsub("[\7-\13]", escape_char)
-      local _49_ = (rawget(_G, "loadstring") or load)(("return " .. formatted))
-      if (nil ~= _49_) then
-        local load_fn = _49_
+      local _48_ = (rawget(_G, "loadstring") or load)(("return " .. formatted))
+      if (nil ~= _48_) then
+        local load_fn = _48_
         return dispatch(load_fn())
-      elseif (_49_ == nil) then
+      elseif (_48_ == nil) then
         return parse_error(("Invalid string: " .. raw))
       else
         return nil
@@ -388,13 +385,13 @@ local function parser_fn(getbyte, filename, _11_)
         dispatch((tonumber(number_with_stripped_underscores) or parse_error(("could not read number \"" .. rawstr .. "\""))))
         return true
       else
-        local _55_ = tonumber(number_with_stripped_underscores)
-        if (nil ~= _55_) then
-          local x = _55_
+        local _54_ = tonumber(number_with_stripped_underscores)
+        if (nil ~= _54_) then
+          local x = _54_
           dispatch(x)
           return true
         elseif true then
-          local _ = _55_
+          local _ = _54_
           return false
         else
           return nil
@@ -446,7 +443,7 @@ local function parser_fn(getbyte, filename, _11_)
       elseif delims[b] then
         close_table(b)
       elseif (b == 34) then
-        parse_string()
+        parse_string(b)
       elseif prefixes[b] then
         parse_prefix(b)
       elseif (sym_char_3f(b) or (b == string.byte("~"))) then
@@ -465,11 +462,11 @@ local function parser_fn(getbyte, filename, _11_)
     end
     return parse_loop(skip_whitespace(getb()))
   end
-  local function _62_()
+  local function _61_()
     stack, line, byteindex, col, lastb = {}, 1, 0, 0, nil
     return nil
   end
-  return parse_stream, _62_
+  return parse_stream, _61_
 end
 local function parser(stream_or_string, _3ffilename, _3foptions)
   local filename = (_3ffilename or "unknown")

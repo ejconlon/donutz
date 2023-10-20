@@ -4,16 +4,15 @@ local compiler = require("fennel.compiler")
 local specials = require("fennel.specials")
 local view = require("fennel.view")
 local unpack = (table.unpack or _G.unpack)
-local depth = 0
-local function prompt_for(top_3f)
-  if top_3f then
-    return (string.rep(">", (depth + 1)) .. " ")
-  else
-    return (string.rep(".", (depth + 1)) .. " ")
-  end
-end
 local function default_read_chunk(parser_state)
-  io.write(prompt_for((0 == parser_state["stack-size"])))
+  local function _1_()
+    if (0 < parser_state["stack-size"]) then
+      return ".."
+    else
+      return ">> "
+    end
+  end
+  io.write(_1_())
   io.flush()
   local input = io.read()
   return (input and (input .. "\n"))
@@ -43,7 +42,7 @@ local function splice_save_locals(env, lua_source, scope)
     local tbl_17_auto = {}
     local i_18_auto = #tbl_17_auto
     for name in pairs(env.___replLocals___) do
-      local val_19_auto = ("local %s = ___replLocals___[%q]"):format((scope.manglings[name] or name), name)
+      local val_19_auto = ("local %s = ___replLocals___['%s']"):format((scope.manglings[name] or name), name)
       if (nil ~= val_19_auto) then
         i_18_auto = (i_18_auto + 1)
         do end (tbl_17_auto)[i_18_auto] = val_19_auto
@@ -59,7 +58,7 @@ local function splice_save_locals(env, lua_source, scope)
     for raw, name in pairs(scope.manglings) do
       local val_19_auto
       if not scope.gensyms[name] then
-        val_19_auto = ("___replLocals___[%q] = %s"):format(raw, name)
+        val_19_auto = ("___replLocals___['%s'] = %s"):format(raw, name)
       else
         val_19_auto = nil
       end
@@ -204,7 +203,7 @@ local function command_docs()
   return table.concat(_21_, "\n")
 end
 commands.help = function(_, _0, on_values)
-  return on_values({("Welcome to Fennel.\nThis is the REPL where you can enter code to be evaluated.\nYou can also run these repl commands:\n\n" .. command_docs() .. "\n  ,return FORM - Evaluate FORM and return its value to the REPL's caller.\n  ,exit - Leave the repl.\n\nUse ,doc something to see descriptions for individual macros and special forms.\nValues from previous inputs are kept in *1, *2, and *3.\n\nFor more information about the language, see https://fennel-lang.org/reference")})
+  return on_values({("Welcome to Fennel.\nThis is the REPL where you can enter code to be evaluated.\nYou can also run these repl commands:\n\n" .. command_docs() .. "\n  ,exit - Leave the repl.\n\nUse ,doc something to see descriptions for individual macros and special forms.\n\nFor more information about the language, see https://fennel-lang.org/reference")})
 end
 do end (compiler.metadata):set(commands.help, "fnl/docstring", "Show this message.")
 local function reload(module_name, env, on_values, on_error)
@@ -404,8 +403,8 @@ local function apropos_show_docs(on_values, pattern)
   for _, path in ipairs(apropos(pattern)) do
     local tgt = apropos_follow_path(path)
     if (("function" == type(tgt)) and (compiler.metadata):get(tgt, "fnl/docstring")) then
-      on_values({specials.doc(tgt, path)})
-      on_values({})
+      on_values(specials.doc(tgt, path))
+      on_values()
     else
     end
   end
@@ -535,12 +534,12 @@ commands.compile = function(env, read, on_values, on_error, scope)
 end
 do end (compiler.metadata):set(commands.compile, "fnl/docstring", "compiles the expression into lua and prints the result.")
 local function load_plugin_commands(plugins)
-  for i = #(plugins or {}), 1, -1 do
-    for name, f in pairs(plugins[i]) do
+  for _, plugin in ipairs((plugins or {})) do
+    for name, f in pairs(plugin) do
       local _86_ = name:match("^repl%-command%-(.*)")
       if (nil ~= _86_) then
         local cmd_name = _86_
-        commands[cmd_name] = f
+        commands[cmd_name] = (commands[cmd_name] or f)
       else
       end
     end
@@ -556,7 +555,7 @@ local function run_command_loop(input, read, loop, env, on_values, on_error, sco
       command(env, read, on_values, on_error, scope, chars)
     elseif true then
       local _ = _88_
-      if ((command_name ~= "exit") and (command_name ~= "return")) then
+      if ("exit" ~= command_name) then
         on_values({"Unknown command", command_name})
       else
       end
@@ -564,7 +563,7 @@ local function run_command_loop(input, read, loop, env, on_values, on_error, sco
     end
   end
   if ("exit" ~= command_name) then
-    return loop((command_name == "return"))
+    return loop()
   else
     return nil
   end
@@ -646,11 +645,6 @@ local function repl(_3foptions)
     return b
   end
   read, reset = parser.parser(_100_)
-  depth = (depth + 1)
-  if opts.message then
-    callbacks.onValues({opts.message})
-  else
-  end
   env.___repl___ = callbacks
   opts.env, opts.scope = env, compiler["make-scope"]()
   opts.useMetadata = (opts.useMetadata ~= false)
@@ -659,14 +653,14 @@ local function repl(_3foptions)
   else
   end
   if opts.registerCompleter then
-    local function _105_()
-      local _104_ = opts.scope
-      local function _106_(...)
-        return completer(env, _104_, ...)
+    local function _104_()
+      local _103_ = opts.scope
+      local function _105_(...)
+        return completer(env, _103_, ...)
       end
-      return _106_
+      return _105_
     end
-    opts.registerCompleter(_105_())
+    opts.registerCompleter(_104_())
   else
   end
   load_plugin_commands(opts.plugins)
@@ -691,21 +685,12 @@ local function repl(_3foptions)
     end
     return callbacks.onValues(out)
   end
-  local function save_value(...)
-    env.___replLocals___["*3"] = env.___replLocals___["*2"]
-    env.___replLocals___["*2"] = env.___replLocals___["*1"]
-    env.___replLocals___["*1"] = ...
-    return ...
-  end
-  opts.scope.manglings["*1"], opts.scope.unmanglings._1 = "_1", "*1"
-  opts.scope.manglings["*2"], opts.scope.unmanglings._2 = "_2", "*2"
-  opts.scope.manglings["*3"], opts.scope.unmanglings._3 = "_3", "*3"
-  local function loop(exit_next_3f)
+  local function loop()
     for k in pairs(chars) do
       chars[k] = nil
     end
     reset()
-    local ok, parser_not_eof_3f, form = pcall(read)
+    local ok, parser_not_eof_3f, x = pcall(read)
     local src_string = table.concat(chars)
     local readline_not_eof_3f = (not readline or (src_string ~= "(null)"))
     local not_eof_3f = (readline_not_eof_3f and parser_not_eof_3f)
@@ -717,69 +702,57 @@ local function repl(_3foptions)
       return run_command_loop(src_string, read, loop, env, callbacks.onValues, callbacks.onError, opts.scope, chars)
     else
       if not_eof_3f then
-        local function _110_(...)
-          local _111_, _112_ = ...
-          if ((_111_ == true) and (nil ~= _112_)) then
-            local src = _112_
-            local function _113_(...)
-              local _114_, _115_ = ...
-              if ((_114_ == true) and (nil ~= _115_)) then
-                local chunk = _115_
-                local function _116_()
-                  return print_values(save_value(chunk()))
-                end
-                local function _117_(...)
-                  return callbacks.onError("Runtime", ...)
-                end
-                return xpcall(_116_, _117_)
-              elseif ((_114_ == false) and (nil ~= _115_)) then
-                local msg = _115_
-                clear_stream()
-                return callbacks.onError("Compile", msg)
-              else
-                return nil
-              end
-            end
-            local function _120_(...)
-              local src0
-              if save_locals_3f then
-                src0 = splice_save_locals(env, src, opts.scope)
-              else
-                src0 = src
-              end
-              return pcall(specials["load-code"], src0, env)
-            end
-            return _113_(_120_(...))
-          elseif ((_111_ == false) and (nil ~= _112_)) then
-            local msg = _112_
+        do
+          local _109_, _110_ = nil, nil
+          local function _111_()
+            opts["source"] = src_string
+            return opts
+          end
+          _109_, _110_ = pcall(compiler.compile, x, _111_())
+          if ((_109_ == false) and (nil ~= _110_)) then
+            local msg = _110_
             clear_stream()
-            return callbacks.onError("Compile", msg)
+            callbacks.onError("Compile", msg)
+          elseif ((_109_ == true) and (nil ~= _110_)) then
+            local src = _110_
+            local src0
+            if save_locals_3f then
+              src0 = splice_save_locals(env, src, opts.scope)
+            else
+              src0 = src
+            end
+            local _113_, _114_ = pcall(specials["load-code"], src0, env)
+            if ((_113_ == false) and (nil ~= _114_)) then
+              local msg = _114_
+              clear_stream()
+              callbacks.onError("Lua Compile", msg, src0)
+            elseif (true and (nil ~= _114_)) then
+              local _1 = _113_
+              local chunk = _114_
+              local function _115_()
+                return print_values(chunk())
+              end
+              local function _116_(...)
+                return callbacks.onError("Runtime", ...)
+              end
+              xpcall(_115_, _116_)
+            else
+            end
           else
-            return nil
           end
         end
-        local function _122_()
-          opts["source"] = src_string
-          return opts
-        end
-        _110_(pcall(compiler.compile, form, _122_()))
         utils.root.options = old_root_options
-        if exit_next_3f then
-          return env.___replLocals___["*1"]
-        else
-          return loop()
-        end
+        return loop()
       else
         return nil
       end
     end
   end
-  local value = loop()
-  depth = (depth - 1)
+  loop()
   if readline then
-    readline.save_history()
+    return readline.save_history()
   else
+    return nil
   end
-  return value
 end
 return repl
