@@ -4,6 +4,9 @@ default:
 repl:
   cd plugin && rlwrap lua main.lua
 
+remote:
+  rlwrap telnet localhost 9876
+
 compile-fennel-mod name:
   cd submodules/fennel/src && fennel --compile fennel/{{name}}.fnl > ../../../plugin/fennel/{{name}}.lua
 
