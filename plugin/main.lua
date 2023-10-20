@@ -51,10 +51,19 @@ function onUnload(sst)
 end
 
 function main()
+  local pkgs = repl.STDLIB_PKGS
+  local defns = { renoise = _G.renoise }
+  local imports = {
+    { name = 'z', mod = 'z', fn = 'z/init.fnl' },
+  }
+  local inlines = {
+    { mod = 'z', fn = 'z/init.fnl' },
+  }
   if _G.renoise == nil then
     -- Just a regular repl - note that renoisey things will not work
-    repl.run { renoise = nil }
+    repl.run(pkgs, defns, imports, inlines)
   else
+    -- TODO fixup renoise repl
     local prefs = renoise.tool().preferences
     if prefs == nil then
       prefs = renoise.Document.create('preferences') {
