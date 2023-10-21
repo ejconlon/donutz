@@ -1,0 +1,54 @@
+;; TODO create prelude module
+
+;; Prelude - Visual select and <Leader>re sends
+(set default-bpm 120)
+(set default-lpb 4)
+(fn hush! [] (: (. (renoise.song) :transport) :panic))
+(fn play! [] (: (. (renoise.song) :transport) :start 1))
+(fn stop! [] (: (. (renoise.song) :transport) :stop))
+(fn bpm! [x] (tset (. (renoise.song) :transport) :bpm x))
+(fn lpb! [x] (tset (. (renoise.song) :transport) :lpb x))
+(fn reset! []
+  (hush!)
+  (clear-song!)
+  (bpm! default-bpm)
+  (lpb! default-lpb))
+
+;; TODO add missing functionality
+
+;; Can do <Leader>rl for cursor to end of line, etc
+(print "hello")
+
+;; ;; Basic pat
+;; ($> 1 [:b-400 :c-500 :e-500])
+;;
+;; ;; Threading state
+;; ($> 1 (-> [:b-400 :c-500]
+;;           (pick [2])))
+;;
+;; ;; Picking instruments
+;; ($> 1 (-> [:b-4 :c-5]
+;;           (ins :square-loop)))
+;;
+;; ;; Rests are :---
+;; ($> 1 [:b-400 :--- :c-500 :---])
+;;
+;; ;; Other tracks
+;; ($> 1 [:b-400 :--- :c-500 :---]
+;;     2 [:OFF :--- :--- :--- :b-401 :b-401 :b-401 :b-401])
+
+;; ;; Try these
+;; ($>
+;;   1 (-> (scale minor-penta :a#3)
+;;         (pick [1 3 5])
+;;         (ins :synth11)
+;;         (ryth (-> :x-x-: (rep 2))))
+;;   2 (-> (scale minor-penta :a#4)
+;;         (pick (<> [1 3 5] [9 7 9 8]))
+;;         (ling [2 1])
+;;         (ins :synth2)
+;;         (ryth (-> (euc 8 4) (spr 1) (rep 4))))
+;;   3 (-> (samps :amen)
+;;         (pick (<> [1 2 1 3 1 4 1 5] [3 2 1 4 5 6 7 8]))
+;;         (vol [:.. :.. (<> :.. :b0 :b0)])
+;;         (ryth (-> :x-x-: (rep 8)))))

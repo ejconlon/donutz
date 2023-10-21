@@ -1,3 +1,4 @@
 *.swo
 *.swp
 plugin/preferences.xml
+scratch/
