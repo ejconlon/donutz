@@ -50,25 +50,27 @@ function onUnload(sst)
   end
 end
 
+local config = {
+  greeting = 'ooo donutz ooo',
+  pkgs = {
+    { name = 'string', mod = 'string' },
+    { name = 'table', mod = 'table' },
+  },
+  defns = {
+    renoise = _G.renoise,
+    -- TODO Why don't these behave well
+    -- oprint = _G.oprint,
+    -- rprint = _G.rprint,
+  },
+  imports = {
+    { name = 'dz', mod = 'dz' },
+  },
+  inlines = {
+    { mod = 'dz' },
+  },
+}
+
 function main()
-  local config = {
-    pkgs = {
-      { name = 'string', mod = 'string' },
-      { name = 'table', mod = 'table' },
-    },
-    defns = {
-      renoise = _G.renoise,
-      -- TODO Why don't these behave well
-      -- oprint = _G.oprint,
-      -- rprint = _G.rprint,
-    },
-    imports = {
-      { name = 'z', mod = 'z' },
-    },
-    inlines = {
-      { mod = 'z' },
-    },
-  }
   if _G.renoise == nil then
     -- Just a regular repl - note that renoisey things will not work
     repl.run(config)

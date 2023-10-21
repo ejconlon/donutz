@@ -239,7 +239,12 @@ function onStart(write, st, config)
       end
     end
   end
-  write('ooo donutz ooo\n>> ')
+  local output = ''
+  if config.greeting ~= nil then
+    output = output .. config.greeting .. '\n'
+  end
+  output = output .. '>> '
+  write(output)
 end
 
 --- Given buffer, return true if ready to evaluate input.
