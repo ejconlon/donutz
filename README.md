@@ -5,7 +5,8 @@ A Fennel-based environment for algorithmic composition
 ## Prior work
 
 This project is based on [8fl](https://git.sr.ht/~nasser/8fl), using some
-of the same interfaces and concepts, but with a different implementation.
+of the same interfaces, concepts, and utility functions, but with a
+generally different implementation.
 
 ## Installation and Use
 
@@ -64,7 +65,12 @@ require('iron.core').setup {
 
 ## License
 
-This project is MIT-licensed. It contains vendored poritions of the Fennel
+This project is MIT-licensed.
+
+It contains vendored poritions of the Fennel
 language source code, which is also [MIT-licensed](
 https://github.com/bakpakin/Fennel/blob/main/LICENSE).
+
+It also contains portions of the 8fl project source code, which has some
+don't-be-evil license, so don't be evil.
 

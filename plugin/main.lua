@@ -53,6 +53,7 @@ end
 local config = {
   greeting = 'ooo donutz ooo',
   pkgs = {
+    { name = 'math', mod = 'math' },
     { name = 'string', mod = 'string' },
     { name = 'table', mod = 'table' },
   },
