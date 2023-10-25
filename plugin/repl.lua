@@ -10,7 +10,7 @@ local splice = require('vendor.splice')
 
 --- From 8fl - try fennel.view to render to string,
 -- but fallback gracefully to tostring and type output
-function stringify(obj)
+function showPrim(obj)
   local ok, string = pcall(view, obj)
   if ok then
     return string
@@ -20,6 +20,39 @@ function stringify(obj)
     return string
   end
   return '#<' .. tostring(type(obj)) .. '>'
+end
+
+--- Show structured values better
+function show(obj)
+  if type(obj) == "table" then
+    if obj[1] ~= nil then
+      local output = '['
+      local first = true
+      for _, v in ipairs(obj) do
+        if first then
+          first = false
+        else
+          output = output .. ' '
+        end
+        output = output .. show(v) 
+      end
+      return output .. ']'
+    else
+      local output = '{'
+      local first = true
+      for k, v in pairs(obj) do
+        if first then
+          first = false
+        else
+          output = output .. ' '
+        end
+        output = output .. show(k) .. ' ' .. show(v)
+      end
+      return output .. '}'
+    end
+  else
+    return showPrim(obj)
+  end
 end
 
 --- Read contents of a file into a string
@@ -83,21 +116,23 @@ function mkEnv(write, config)
     -- TODO what else should go in globals?
     _G = { package = { loaded = loaded } },
     ___replLocals___ = locals,
-    print = function(...)
-      local first = true
-      local output = ''
-      for i, v in ipairs(arg) do
-        output = output .. stringify(v)
-        if first then
-          first = false
-        else
-          output = output .. '\t'
-        end
-      end
-      output = output .. '\n'
-      write(output)
-    end,
   }
+
+  env.print = function (...)
+    local args = {...}
+    local first = true
+    local output = ''
+    for i, v in ipairs(args) do
+      output = output .. show(v)
+      if first then
+        first = false
+      else
+        output = output .. '\t'
+      end
+    end
+    output = output .. '\n'
+    write(output)
+  end
 
   env.require = function(mod)
     return rawRequire(write, config, env, mod, nil, false)
@@ -325,7 +360,7 @@ function onInput(write, st, inp)
       local ok, result = pcall(rawEval, write, st.env, st.buf, st.scope, true)
       st.buf = '' 
       if ok then
-        output = stringify(result)
+        output = show(result)
       else
         output = 'Error: ' .. result
       end
@@ -347,7 +382,7 @@ function run(config)
 end
 
 return {
-  stringify = stringify,
+  show = show,
   mkState = mkState,
   onStart = onStart,
   onInput = onInput,
