@@ -173,10 +173,11 @@ function mkEnv(write, config)
 
   if config.defns ~= nil then
     for k, v in pairs(config.defns) do
-      if env[k] ~= nil then
+      local kk = fennel.mangle(k)
+      if env[kk] ~= nil then
         error('Duplicate environment key: ' .. k)
       else
-        env[k] = v
+        env[kk] = v
       end
     end
   end

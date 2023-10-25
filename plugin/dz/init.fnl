@@ -27,7 +27,7 @@
 (fn rep-inst [i]
   { ; TODO
     :name (. i name)
-    :samples (icollect [_ s (. i samples)] rep-samp)
+    :samples (icollect [_ s (ipairs (. i :samples))] rep-samp)
   })
 
 (fn clear-inst! [i]
