@@ -22,8 +22,9 @@
   (local t {})
   (fn t.dict []
     (collect [_ key (ipairs keys)] (values key ((. lenses key :getter)))))
-  (fn t.clear []
-    (: (ofn) :clear))
+  ; TODO this kind of thing is per-model
+  ; (fn t.clear []
+  ;   (: (ofn) :clear))
   (setmetatable t
     { :__metatable
         false
