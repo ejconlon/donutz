@@ -128,6 +128,8 @@ function mkEnv(write, config)
     type = type,
     pairs = pairs,
     ipairs = ipairs,
+    tostring = tostring,
+    show = show,
     print = function (...)
       local args = {...}
       local first = true
