@@ -23,7 +23,9 @@ end
 --- Show structured values better
 function show(obj)
   if type(obj) == "table" then
-    if obj[1] ~= nil then
+    if obj.show ~= nil then 
+      return obj.show()
+    elseif obj[1] ~= nil then
       local output = '['
       local first = true
       for _, v in ipairs(obj) do

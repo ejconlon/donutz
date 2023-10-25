@@ -22,7 +22,9 @@
   (local t {})
   (fn t.dict []
     (collect [_ key (ipairs keys)] (values key ((. lenses key :getter)))))
-  ; TODO this kind of thing is per-model
+  (fn t.show []
+    (show (t.dict)))
+  ; TODO this kind of thing is per-model - define on inst
   ; (fn t.clear []
   ;   (: (ofn) :clear))
   (setmetatable t
@@ -30,7 +32,7 @@
         false
       :__tostring
         (fn [_]
-          (tostring (t:dict)))
+          (show (t.dict)))
       :__index 
         (fn [_ key]
           (let [g (?. lenses key :getter)] (when (~= g nil) (g))))
