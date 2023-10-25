@@ -1,0 +1,20 @@
+name: donutz-model
+version: 0.1.0
+
+default-extensions:
+- DerivingStrategies
+- DeriveFoldable
+- DeriveFunctor
+- DeriveTraversable
+
+dependencies:
+- base
+- mtl
+- tasty
+- tasty-hunit
+- transformers
+
+executable:
+  source-dirs: src
+  main: Model.hs
+

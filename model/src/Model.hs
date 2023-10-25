@@ -1,11 +1,12 @@
-#!/usr/bin/env stack
--- stack --resolver lts-21.16 script --package tasty --package tasty-hunit
+module Model where
+
+import Control.Monad.RWS.Strict (RWS, runRWS)
 
 type InstName = String
 
 type AbsPitch = Integer
 
-type Shift = Integer
+type AbsShift = Integer
 
 type Duration = Rational
 
@@ -20,7 +21,7 @@ data Pitch = Pitch !PitchClass !Octave
   deriving stock (Eq, Ord, Show)
 
 data Score a =
-    ScorePrim !Dur !a
+    ScorePrim !Duration !a
   | ScoreSeq !(Score a) !(Score a)
   | ScorePar !(Score a) !(Score a)
   | ScoreMod !Mod (Score a)
@@ -37,8 +38,11 @@ data Mod =
   | ModLayout !Layout
   deriving stock (Eq, Ord, Show)
 
-data NoteAttr
+data NoteAttr = NoteAttr
   deriving stock (Eq, Ord, Show)
+
+data Ctl = CtlOff | CtlCut
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
 
 data Event =
     EventNote !AbsPitch !InstName
@@ -50,13 +54,16 @@ data StdVal = StdVal !(Maybe Event) ![NoteAttr]
 
 type StdScore = Score StdVal
 
-data Env = Env !Tempo !Shift !Layout
+data Env = Env !Tempo !AbsShift !Layout
   deriving stock (Eq, Ord, Show)
 
-type M = RWS Env 
+type M = RWS Env () ()
+
+runM :: M a -> Env -> () -> (a, (), ())
+runM = runRWS
 
 sequence :: StdScore -> [StdVal]
-sequence = 
+sequence = undefined
 
 main :: IO ()
 main = pure ()
