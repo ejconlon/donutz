@@ -130,6 +130,8 @@ function mkEnv(write, config)
     ipairs = ipairs,
     tostring = tostring,
     show = show,
+    pcall = pcall,
+    setmetatable = setmetatable,
     print = function (...)
       local args = {...}
       local first = true
@@ -187,7 +189,12 @@ end
 
 --- Evaluate fennel code in the given context
 function rawEval(write, env, buf, scope, shouldSplice, source)
-  local ok, code = pcall(fennel.compileString, buf, { scope = scope })
+  -- write('0>>>>>>>>>>>\n')
+  -- write(buf)
+  -- write('\n')
+  -- write('0<<<<<<<<<<<\n')
+
+  local ok, code = pcall(fennel.compileString, buf, { scope = scope, useMetadata = true })
   if not ok then
     error('Failed to compile ' .. code)
   end
@@ -198,6 +205,11 @@ function rawEval(write, env, buf, scope, shouldSplice, source)
   else
     spliced = code
   end
+
+  -- write('1>>>>>>>>>>>\n')
+  -- write(spliced)
+  -- write('\n')
+  -- write('1<<<<<<<<<<<\n')
 
   local f, err
   if _G.loadstring then
@@ -211,6 +223,11 @@ function rawEval(write, env, buf, scope, shouldSplice, source)
   if err then
     error('Failed to load ' .. spliced .. ' error: ' .. err)
   end
+
+  -- write('2>>>>>>>>>>>\n')
+  -- write(show(f))
+  -- write('\n')
+  -- write('2<<<<<<<<<<<\n')
 
   local ok, result = pcall(f)
   if not ok then

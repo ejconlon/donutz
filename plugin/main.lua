@@ -59,9 +59,6 @@ local config = {
   },
   defns = {
     renoise = _G.renoise,
-    -- TODO Why don't these behave well
-    -- oprint = _G.oprint,
-    -- rprint = _G.rprint,
   },
   imports = {
     { name = 'dz', mod = 'dz' },

@@ -1,49 +1,102 @@
-(fn hello [] "hello")
 
-;; TODO
-(fn example-song! [] nil)
+(fn pat-get-all []
+  (. (renoise.song) :patterns))
 
-; ;; From 8fl
-; (fn clear-song! []
-;   (let [song (renoise.song)]
-;     (while (< 1 (# (. song :sequencer :pattern_sequence)))
-;       (: (. song :sequencer) :delete_sequence_at
-;         (# (. song :sequencer :pattern_sequence))))
-;     (: (. song :patterns 1) :clear)))
-
-(fn get-pat [ix]
+(fn pat-get [ix]
   (. (renoise.song) :patterns ix))
 
-(fn rep-pat [p]
+(fn pat-rep [pat]
   {  ; TODO
   })
 
-(fn clear-pat! [i]
-  (: i :clear))
+(fn pat-clear! [pat]
+  (: pat :clear))
 
-(fn get-inst [ix]
-  (. (renoise.song) :instruments ix))
+(macro lens-mk [key ofn]
+   `{ :getter (fn [] (. (,ofn) ,key))
+      :setter (fn [val#] (tset (,ofn) ,key val#))})
 
-(fn rep-inst [i]
-  { ; TODO
-    :name (. i name)
-    :samples (icollect [_ s (ipairs (. i :samples))] rep-samp)
-  })
+(fn proxy-mk [keys ofn]
+  (local lenses
+    (collect [_ key (ipairs keys)] (values key (lens-mk key ofn))))
+  (local t {})
+  (fn t.dict []
+    (collect [_ key (ipairs keys)] (values key ((. lenses key :getter)))))
+  (fn t.clear []
+    (: (ofn) :clear))
+  (setmetatable t
+    { :__metatable
+        false
+      :__tostring
+        (fn [_]
+          (tostring (t:dict)))
+      :__index 
+        (fn [_ key]
+          (let [g (?. lenses key :getter)] (when (~= g nil) (g))))
+      :__newindex 
+        (fn [_ key val]
+          (let [s (?. lenses key :setter)] (s val)))
+    }
+  ))
 
-(fn clear-inst! [i]
-  (: i :clear))
+(local inst-keys [:name :volume])
 
-(fn rep-samp [i]
-  { ; TODO
-  })
+(fn inst-mk [ofn]
+  (proxy-mk inst-keys ofn))
 
-{ : hello
-  : example-song!
-  : get-pat
-  : rep-pat
-  : clear-pat!
-  : get-inst
-  : rep-inst
-  : clear-inst!
-  : rep-samp
+(fn inst-get [ix]
+  (inst-mk (fn [] (. (renoise.song) :instruments ix))))
+
+(fn inst-len [] (length (. (renoise.song) :instruments)))
+
+; (fn inst-attrs [obj]
+;   (local keys [:name :volume]
+;   (collect [_ key ipairs(inst-keys)]
+;   { :name (mk-lens obj :name)
+;     :volume (mk-lens obj :volume)
+;     :
+;   })
+;
+; (fn inst-new [obj]
+;   (local attrs
+;     {[:name])
+;   (setmetatable {}
+;     { :__metatable false
+;       :__index
+;       (fn [_ key]
+;         (print (.. "Got " key))
+;         (case key
+;           :name (. obj :name)))
+;       :__newindex
+;       (fn [_ key val]
+;         (print (.. "Got " key))
+;         (case key
+;           :name (tset .obj :name val)))
+;       :__tostring
+;       (fn [_] "")
+;     }))
+;
+; (fn inst-rep [inst]
+;   { ; TODO
+;     :name (. inst :name)
+;     :samples (icollect [_ s (ipairs (. inst :samples))] rep-samp)
+;     :volume (. inst :volume)
+;     :transpose (. inst :transpose)
+;   })
+;
+; (fn inst-clear! [inst]
+;   (: inst :clear))
+;
+; (fn samp-get [inst ix]
+;   (. inst :samples ix))
+;
+; (fn samp-rep [samp]
+;   { ; TODO
+;   })
+;
+; (fn samp-load! [samp fname]
+;   ((: (. s :sample-buffer) :load-from) fname))
+
+{ : inst-get
+  : inst-len
 }
