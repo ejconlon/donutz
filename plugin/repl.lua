@@ -2,10 +2,8 @@
 -- feed input (e.g. from a socket) from lua.
 -- @module repl
 
-local repl = require('fennel.repl')
-local view = require('fennel.view')
-local compiler = require('fennel.compiler')
-local specials = require('fennel.specials')
+local fennel = require('fennel')
+local view = require('fennelview')
 local splice = require('vendor.splice')
 
 --- From 8fl - try fennel.view to render to string,
@@ -81,16 +79,26 @@ function resolveModuleFileName(mod, fn)
   if fn == nil then
     local base = mod:gsub('%.', '/')
     fn = base .. '.lua'
-    if not fexists(fn) then
-      fn = base .. '/init.fnl'
+    if fexists(fn) then
+      return fn
     end
-  end
+    fn = base .. '.fnl'
+    if fexists(fn) then
+      return fn
+    end
+    fn = base .. '/init.fnl'
+    if fexists(fn) then
+      return fn
+    end
 
-  if not fexists(fn) then
+    error('Module ' .. mod .. ' not found\n')
+  else
+    if fexists(fn) then
+      return fn
+    end
+
     error('Module ' .. mod .. ' not found at path ' .. fn .. '\n')
   end
-
-  return fn
 end
 
 --- Lookup packages in the current environment and return
@@ -102,7 +110,7 @@ function lookupPkgs(pkgs)
     for _, v in ipairs(pkgs) do
       local contents = _G.package.loaded[v.mod]
       loaded[v.mod] = contents
-      locals[compiler['global-mangling'](v.name)] = contents
+      locals[fennel.mangle(v.name)] = contents
     end
   end
   return loaded, locals
@@ -116,23 +124,26 @@ function mkEnv(write, config)
     -- TODO what else should go in globals?
     _G = { package = { loaded = loaded } },
     ___replLocals___ = locals,
-  }
-
-  env.print = function (...)
-    local args = {...}
-    local first = true
-    local output = ''
-    for i, v in ipairs(args) do
-      output = output .. show(v)
-      if first then
-        first = false
-      else
-        output = output .. '\t'
+    fennel = fennel,
+    type = type,
+    pairs = pairs,
+    ipairs = ipairs,
+    print = function (...)
+      local args = {...}
+      local first = true
+      local output = ''
+      for i, v in ipairs(args) do
+        output = output .. show(v)
+        if first then
+          first = false
+        else
+          output = output .. '\t'
+        end
       end
-    end
-    output = output .. '\n'
-    write(output)
-  end
+      output = output .. '\n'
+      write(output)
+    end,
+  }
 
   env.require = function(mod)
     return rawRequire(write, config, env, mod, nil, false)
@@ -168,12 +179,12 @@ function mkEnv(write, config)
     end
   end
 
-  return specials['wrap-env'](env)
+  return env
 end
 
 --- Evaluate fennel code in the given context
 function rawEval(write, env, buf, scope, shouldSplice, source)
-  local ok, code = pcall(compiler['compile-string'], buf, { scope = scope })
+  local ok, code = pcall(fennel.compileString, buf, { scope = scope })
   if not ok then
     error('Failed to compile ' .. code)
   end
@@ -209,7 +220,7 @@ end
 --- Evaluate the module at the given file path
 function modEval(write, config, buf, fn)
   local env = mkEnv(write, config)
-  local scope = compiler['make-scope']()
+  local scope = fennel.scope()
   return rawEval(write, env, buf, scope, false, fn)
 end
 
@@ -226,9 +237,13 @@ function rawRequire(write, config, env, mod, fn, reload)
   local res = env._G.package.loaded[mod]
   if reload or res == nil then
     fn = resolveModuleFileName(mod, fn)
-    local buf = fread(fn)
-    res = modEval(write, config, buf, fn)
-    env._G.package.loaded[mod] = res
+    if fn:match('%.lua$') then
+      res = require(mod)
+    else
+      local buf = fread(fn)
+      res = modEval(write, config, buf, fn)
+      env._G.package.loaded[mod] = res
+    end
   end
   return res
 end
@@ -236,14 +251,14 @@ end
 --- Import module with local name
 function rawImport(write, config, env, name, mod, fn, reload)
   local res = rawRequire(write, config, env, mod, fn, reload)
-  env.___replLocals___[compiler['global-mangling'](name)] = res
+  env.___replLocals___[fennel.mangle(name)] = res
 end
 
 --- Inline module exports
 function rawInline(write, config, env, mod, fn, reload)
   local res = rawRequire(write, config, env, mod, fn, reload)
   for k, v in pairs(res) do
-    env.___replLocals___[compiler['global-mangling'](k)] = v
+    env.___replLocals___[fennel.mangle(k)] = v
   end
 end
 
@@ -251,8 +266,8 @@ end
 function mkState(write, config)
   return {
     buf = '',
-    scope = compiler['make-scope'](),
-    env = mkEnv(write, config)
+    scope = fennel.scope(),
+    env = mkEnv(write, config),
   }
 end
 

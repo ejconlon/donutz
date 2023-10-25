@@ -59,7 +59,6 @@ local config = {
   },
   defns = {
     renoise = _G.renoise,
-    type = type,
     -- TODO Why don't these behave well
     -- oprint = _G.oprint,
     -- rprint = _G.rprint,
