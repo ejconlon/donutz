@@ -1,16 +1,18 @@
 
-(fn pat-get-all []
-  (. (renoise.song) :patterns))
+; (fn pat-get-all []
+;   (. (renoise.song) :patterns))
+;
+; (fn pat-get [ix]
+;   (. (renoise.song) :patterns ix))
+;
+; (fn pat-rep [pat]
+;   {  ; TODO
+;   })
+;
+; (fn pat-clear! [pat]
+;   (: pat :clear))
 
-(fn pat-get [ix]
-  (. (renoise.song) :patterns ix))
-
-(fn pat-rep [pat]
-  {  ; TODO
-  })
-
-(fn pat-clear! [pat]
-  (: pat :clear))
+;; Objects ---------------------------------------
 
 (macro lens-mk [key ofn]
    `{ :getter (fn [] (. (,ofn) ,key))
@@ -38,9 +40,11 @@
     }
   ))
 
+;; Instruments ---------------------------------------
+
 (fn raw-inst-list [] (. (renoise.song) :instruments))
 
-(fn raw-inst-get [ix] (. (raw-inst-list) ix))
+(fn raw-inst-get [ix] (: (renoise.song) :instrument ix))
 
 ; (fn raw-inst-ensure [ix] {})
 
@@ -70,8 +74,51 @@
 ; (fn samp-load! [samp fname]
 ;   ((: (. s :sample-buffer) :load-from) fname))
 
+;; Tracks ---------------------------------------
+
+(fn raw-track-list [] (. (renoise.song) :tracks))
+
+(fn raw-track-get [ix] (: (renoise.song) :track ix))
+
+(local track-fields [:name :mute_state :solo_state])
+
+(local track-methods 
+  { :mute (fn [obj] (: obj :mute))
+    :unmute (fn [obj] (: obj :unmute))
+    :solo (fn [obj] (: obj :solo))
+  })
+
+(fn track-mk [ofn] (obj-proxy-mk track-fields track-methods ofn))
+
+(fn track-get [ix] (track-mk (fn [] (raw-track-get ix))))
+
+(fn track-len [] (length (raw-track-list)))
+
+;; Patterns ---------------------------------------
+
+(fn raw-pat-list [] (. (renoise.song) :patterns))
+
+(fn raw-pat-get [ix] (: (renoise.song) :pattern ix))
+
+(local pat-fields [])
+
+(local pat-methods 
+  { 
+  })
+
+(fn pat-mk [ofn] (obj-proxy-mk pat-fields pat-methods ofn))
+
+(fn pat-get [ix] (pat-mk (fn [] (raw-pat-get ix))))
+
+(fn pat-len [] (length (raw-pat-list)))
+
+
+;; Exports ---------------------------------------
+
 { : inst-get
-  ; : inst-ensure
-  ; : inst-next
   : inst-len
+  : track-get
+  : track-len
+  : pat-get 
+  : pat-len
 }
