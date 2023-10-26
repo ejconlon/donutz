@@ -22,9 +22,9 @@ end
 
 --- Show structured values better
 function show(obj)
-  if type(obj) == "table" then
-    if obj.show ~= nil then 
-      return obj.show()
+  if type(obj) == 'table' then
+    if obj.__dict ~= nil then 
+      return show(obj.__dict())
     elseif obj[1] ~= nil then
       local output = '['
       local first = true
@@ -52,6 +52,15 @@ function show(obj)
     end
   else
     return showPrim(obj)
+  end
+end
+
+--- Return a custom table from an object
+function dict(obj)
+  if type(obj) == 'table' and obj.__dict ~= nil then
+    return obj.__dict()
+  else
+    return nil
   end
 end
 
@@ -131,9 +140,13 @@ function mkEnv(write, config)
     pairs = pairs,
     ipairs = ipairs,
     tostring = tostring,
-    show = show,
     pcall = pcall,
+    xpcall = xpcall,
+    error = error,
+    getmetatable = getmetatable,
     setmetatable = setmetatable,
+    show = show,
+    dict = dict,
     print = function (...)
       local args = {...}
       local first = true
@@ -420,6 +433,7 @@ end
 
 return {
   show = show,
+  dict = dict,
   mkState = mkState,
   onStart = onStart,
   onInput = onInput,

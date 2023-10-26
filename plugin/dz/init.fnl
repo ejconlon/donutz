@@ -16,23 +16,22 @@
    `{ :getter (fn [] (. (,ofn) ,key))
       :setter (fn [val#] (tset (,ofn) ,key val#))})
 
-(fn proxy-mk [keys ofn]
+(fn proxy-mk [fields methods ofn]
   (local lenses
-    (collect [_ key (ipairs keys)] (values key (lens-mk key ofn))))
-  (local t {})
-  (fn t.dict []
-    (collect [_ key (ipairs keys)] (values key ((. lenses key :getter)))))
-  (fn t.show []
-    (show (t.dict)))
+    (collect [_ key (ipairs fields)] (values key (lens-mk key ofn))))
+  (local prox
+    (collect [key func (pairs methods)] (values key (fn [...] (func (ofn) ...)))))
+  (fn prox.__dict []
+    (collect [_ key (ipairs fields)] (values key ((. lenses key :getter)))))
   ; TODO this kind of thing is per-model - define on inst
   ; (fn t.clear []
   ;   (: (ofn) :clear))
-  (setmetatable t
+  (setmetatable prox
     { :__metatable
         false
       :__tostring
         (fn [_]
-          (show (t.dict)))
+          (show t))
       :__index 
         (fn [_ key]
           (let [g (?. lenses key :getter)] (when (~= g nil) (g))))
@@ -42,10 +41,14 @@
     }
   ))
 
-(local inst-keys [:name :volume])
+(local inst-fields [:name :volume])
+
+(local inst-methods 
+  { :clear (fn [obj] (: obj :clear))
+  })
 
 (fn inst-mk [ofn]
-  (proxy-mk inst-keys ofn))
+  (proxy-mk inst-fields inst-methods ofn))
 
 (fn inst-get [ix]
   (inst-mk (fn [] (. (renoise.song) :instruments ix))))
