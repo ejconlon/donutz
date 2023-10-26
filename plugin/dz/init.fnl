@@ -16,16 +16,13 @@
    `{ :getter (fn [] (. (,ofn) ,key))
       :setter (fn [val#] (tset (,ofn) ,key val#))})
 
-(fn proxy-mk [fields methods ofn]
+(fn obj-proxy-mk [fields methods ofn]
   (local lenses
     (collect [_ key (ipairs fields)] (values key (lens-mk key ofn))))
   (local prox
     (collect [key func (pairs methods)] (values key (fn [...] (func (ofn) ...)))))
   (fn prox.__dict []
     (collect [_ key (ipairs fields)] (values key ((. lenses key :getter)))))
-  ; TODO this kind of thing is per-model - define on inst
-  ; (fn t.clear []
-  ;   (: (ofn) :clear))
   (setmetatable prox
     { :__metatable
         false
@@ -41,47 +38,24 @@
     }
   ))
 
-(local inst-fields [:name :volume])
+(fn raw-inst-list [] (. (renoise.song) :instruments))
+
+(fn raw-inst-get [ix] (. (raw-inst-list) ix))
+
+; (fn raw-inst-ensure [ix] {})
+
+(local inst-fields [:name :volume :transpose])
 
 (local inst-methods 
   { :clear (fn [obj] (: obj :clear))
   })
 
-(fn inst-mk [ofn]
-  (proxy-mk inst-fields inst-methods ofn))
+(fn inst-mk [ofn] (obj-proxy-mk inst-fields inst-methods ofn))
 
-(fn inst-get [ix]
-  (inst-mk (fn [] (. (renoise.song) :instruments ix))))
+(fn inst-get [ix] (inst-mk (fn [] (raw-inst-get ix))))
 
-(fn inst-len [] (length (. (renoise.song) :instruments)))
+(fn inst-len [] (length (raw-inst-list)))
 
-; (fn inst-attrs [obj]
-;   (local keys [:name :volume]
-;   (collect [_ key ipairs(inst-keys)]
-;   { :name (mk-lens obj :name)
-;     :volume (mk-lens obj :volume)
-;     :
-;   })
-;
-; (fn inst-new [obj]
-;   (local attrs
-;     {[:name])
-;   (setmetatable {}
-;     { :__metatable false
-;       :__index
-;       (fn [_ key]
-;         (print (.. "Got " key))
-;         (case key
-;           :name (. obj :name)))
-;       :__newindex
-;       (fn [_ key val]
-;         (print (.. "Got " key))
-;         (case key
-;           :name (tset .obj :name val)))
-;       :__tostring
-;       (fn [_] "")
-;     }))
-;
 ; (fn inst-rep [inst]
 ;   { ; TODO
 ;     :name (. inst :name)
@@ -90,19 +64,14 @@
 ;     :transpose (. inst :transpose)
 ;   })
 ;
-; (fn inst-clear! [inst]
-;   (: inst :clear))
-;
 ; (fn samp-get [inst ix]
 ;   (. inst :samples ix))
-;
-; (fn samp-rep [samp]
-;   { ; TODO
-;   })
 ;
 ; (fn samp-load! [samp fname]
 ;   ((: (. s :sample-buffer) :load-from) fname))
 
 { : inst-get
+  ; : inst-ensure
+  ; : inst-next
   : inst-len
 }
