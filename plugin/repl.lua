@@ -20,12 +20,16 @@ function showPrim(obj)
   return '#<' .. tostring(type(obj)) .. '>'
 end
 
+function isArray(obj)
+  return type(obj) == 'table' and obj[1] ~= nil
+end
+
 --- Show structured values better
 function show(obj)
   if type(obj) == 'table' then
-    if obj.__dict ~= nil then 
-      return show(obj.__dict())
-    elseif obj[1] ~= nil then
+    if obj.__tojson ~= nil then 
+      return show(obj.__tojson())
+    elseif isArray(obj) then
       local output = '['
       local first = true
       for _, v in ipairs(obj) do
@@ -56,11 +60,25 @@ function show(obj)
 end
 
 --- Return a custom table from an object
-function dict(obj)
-  if type(obj) == 'table' and obj.__dict ~= nil then
-    return obj.__dict()
+function tojson(obj)
+  if type(obj) == 'table' then
+    if obj.__tojson ~= nil then
+      return obj.__tojson()
+    elseif isArray(obj) then
+      local t = {}
+      for k, v in ipairs(obj) do
+        t[k] = tojson(v)
+      end
+      return t
+    else
+      local t = {}
+      for k, v in pairs(obj) do
+        t[k] = tojson(v)
+      end
+      return t
+    end
   else
-    return nil
+    return obj
   end
 end
 
@@ -146,7 +164,7 @@ function mkEnv(write, config)
     getmetatable = getmetatable,
     setmetatable = setmetatable,
     show = show,
-    dict = dict,
+    tojson = tojson,
     print = function (...)
       local args = {...}
       local first = true
@@ -433,7 +451,7 @@ end
 
 return {
   show = show,
-  dict = dict,
+  tojson = tojson,
   mkState = mkState,
   onStart = onStart,
   onInput = onInput,
