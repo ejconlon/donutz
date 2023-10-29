@@ -24,3 +24,7 @@ compile-vendor:
   just compile-vendor-mod splice
 
 compile-deps: compile-fennel compile-vendor
+
+format:
+  # fnlfmt --fix plugin/dz
+  find plugin/dz -name '*.fnl' | xargs -t -I % fnlfmt --fix %

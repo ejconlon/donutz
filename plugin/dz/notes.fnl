@@ -1,10 +1,10 @@
 ;; Much of this is from 8fl
 
-(local note-names [:c- :c# :d- :d# :e- :f- :f# :g- :g# :a- :a# :b-])
-(local note-map { :names {} :values {} })
+(local note-names [:c- "c#" :d- "d#" :e- :f- "f#" :g- "g#" :a- "a#" :b-])
+(local note-map {:names {} :values {}})
 
 (for [i 0 119]
-  (let [note (. note-names (+ 1 (% i 12))
+  (let [note (. note-names (+ 1 (% i 12)))
         octave (math.floor (/ i 12))
         note-string (string.format "%s%d" note octave)]
     (tset note-map.names note-string i)
@@ -28,14 +28,13 @@
         out (match (type root)
               :number get-note-value
               :string get-note-name)]
-    (resumable
-     (var root (get-note-value root))
-     (foreign.coroutine.yield (out root))
-     (each [x (seq.cycle intervals)]
-       (set root (+ root x))
-       (if (< root 128)
-         (foreign.coroutine.yield (out root))
-         (lua "return"))))))
+    (resumable (var root (get-note-value root))
+               (foreign.coroutine.yield (out root))
+               (each [x (seq.cycle intervals)]
+                 (set root (+ root x))
+                 (if (< root 128)
+                     (foreign.coroutine.yield (out root))
+                     (lua :return))))))
 
 (fn chord [root intervals]
   "Given root note and list of semitone intervals, return vector of note names"
@@ -50,5 +49,4 @@
 ;
 ; {: chord : maj : min }
 
-{ : get-note-value : get-note-name : scale : chord : maj : min }
-
+{: get-note-value : get-note-name : scale : chord : maj : min}
