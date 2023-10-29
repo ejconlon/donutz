@@ -2,63 +2,74 @@
 
 (fn arr-proxy-mk [defn]
   (fn [ofn]
-    (fn rawLen [obj] (length (defn.get (ofn))))
+    (fn rawLen [obj]
+      (length (defn.get (ofn))))
 
     (local prox {})
 
     (fn prox.__index [key]
       (local len (rawLen (ofn)))
-      (if (and (= (type key) "number") (> key 0) (<= key len))
-        (defn.wrap (fn [] (defn.array.lookup (ofn) key)))
-        nil))
+      (if (and (= (type key) :number) (> key 0) (<= key len))
+          (defn.wrap (fn [] (defn.array.lookup (ofn) key)))
+          nil))
+
+    (fn prox.__newindex [key val]
+      (error "Use __alloc/__resize"))
 
     (fn prox.__len [] (rawLen (ofn)))
 
     (fn prox.__iter []
       (local len (rawLen (ofn)))
+
       (fn it [sub i]
         (local j (+ i 1))
-        (if (< i len) 
-          (values j (prox.__index j))
-          nil))
-      (values it {} 0)) 
+        (if (< i len)
+            (values j (prox.__index j))
+            nil))
+
+      (values it {} 0))
 
     (fn prox.__tojson []
-      (icollect [_ v (ipairs (defn.get (ofn)))] (tojson (defn.wrap (fn [] v)))))
+      (icollect [_ v (ipairs (defn.get (ofn)))]
+        (tojson (defn.wrap (fn [] v))))) ; If no insert/delete functions, is immutable array view
+    (if (= defn.array.insert nil)
+        (do
+          (fn prox.__fromjson [_] nil))
+        (do
+          (fn prox.__fromjson [t]
+            (local tlen (length t))
+            (prox.__resize tlen)
+            (for [ix 1 tlen]
+              ((. (prox.__index ix) :__fromjson) (. t ix))))
+          (fn prox.__alloc []
+            (local obj (ofn))
+            (local ix (+ 1 (rawLen obj)))
+            (defn.array.insert obj ix)
+            (prox.__index ix))
 
-    (fn prox.__fromjson [t]
-      (local tlen (length t))
-      (prox.__resize tlen)
-      (for [ix 1 tlen] ((. (prox.__index ix) :__fromjson) (. t ix))))
-
-    (fn prox.__alloc []
-      (local obj (ofn))
-      (local ix (+ 1 (rawLen obj)))
-      (defn.array.insert obj ix)
-      (prox.__index ix))
-
-    (fn prox.__resize [?size]
-      (local size (case ?size nil 0 l l))
-      (local mn (case defn.array.minlen nil 0 l l))
-      (local goal (if (> mn size) mn size))
-      (local obj (ofn))
-      (local len (rawLen obj))
-      (if (< len goal) 
-          (do
-            (var ix len)
-            (while (< ix goal) (defn.array.insert obj ix) (set ix (+ ix 1))))
-          (> len goal)
-          (do
-            (var ix len)
-            (while (> ix goal) (defn.array.delete obj ix) (set ix (- ix 1))))))
-
+          (fn prox.__resize [?size]
+            (local size (case ?size nil 0 l l))
+            (local mn (case defn.array.minlen nil 0 l l))
+            (local goal (if (> mn size) mn size))
+            (local obj (ofn))
+            (local len (rawLen obj))
+            (if (< len goal)
+                (do
+                  (var ix len)
+                  (while (< ix goal) (defn.array.insert obj ix)
+                    (set ix (+ ix 1))))
+                (> len goal)
+                (do
+                  (var ix len)
+                  (while (> ix goal) (defn.array.delete obj ix)
+                    (set ix (- ix 1))))))))
     (setmetatable prox
                   {:__metatable false
                    :__tostring (fn [_] (show t))
                    :__ipairs (fn [_] (prox.__iter))
                    :__len (fn [_] (prox.__len))
                    :__index (fn [_ key] (prox.__index key))
-                   :__newindex (fn [_ _ _] (error "Use __alloc/__resize"))})))
+                   :__newindex (fn [_ key val] (prox.__newindex key val))})))
 
 (fn obj-add-getter [key t]
   (tset t key (fn [obj] (. obj key))))
@@ -68,8 +79,8 @@
 
 (fn obj-add-child [key child t ofn]
   (tset t key (case child.array
-                  nil (child.wrap (fn [] (child.get (ofn))))
-                  _ ((arr-proxy-mk child) ofn))))
+                nil (child.wrap (fn [] (child.get (ofn))))
+                _ ((arr-proxy-mk child) ofn))))
 
 (fn obj-proxy-mk [defn]
   (fn [ofn]
@@ -136,7 +147,7 @@
 
 ;; Sequencer -----------------------------------------
 
-(local sequ-mk (obj-proxy-mk {}))
+(local sequ-mk (obj-proxy-mk {:attrs [:pattern_sequence]}))
 
 ;; Instruments ---------------------------------------
 
@@ -148,18 +159,29 @@
                                            :array {:lookup (fn [obj ix]
                                                              (: obj :sample ix))
                                                    :insert (fn [obj ix]
-                                                             (: obj 
+                                                             (: obj
                                                                 :insert_sample_at
                                                                 ix))
                                                    :delete (fn [obj ix]
-                                                             (: obj 
+                                                             (: obj
                                                                 :delete_sample_at
                                                                 ix))}}}}))
+
+;; Sample buffers ---------------------------------------
+
+(local sbuf-mk
+       (obj-proxy-mk {:methods {:load_from (fn [obj fname]
+                                             (: obj :load_from fname))
+                                :save_as (fn [obj fname fmt]
+                                           (: obj :save_as fname fmt))}}))
 
 ;; Samples ---------------------------------------
 
 (local samp-mk
        (obj-proxy-mk {:vars [:name :panning :volume :transpose :fine_tune]
+                      :children {:sample_buffer {:wrap sbuf-mk
+                                                 :get (fn [obj]
+                                                        obj.sample_buffer)}}
                       :methods {:clear (fn [obj] (: obj :clear))}}))
 
 ;; Tracks ---------------------------------------
@@ -170,35 +192,121 @@
                                 :unmute (fn [obj] (: obj :unmute))
                                 :solo (fn [obj] (: obj :solo))}}))
 
+;; Pattern Tracks ---------------------------------
+
+(local ptrack-mk (obj-proxy-mk {}))
+
 ;; Patterns ---------------------------------------
 
-(local pat-mk (obj-proxy-mk {}))
+(local pat-mk
+       (obj-proxy-mk {:children {:tracks {:wrap ptrack-mk
+                                          :get (fn [obj] obj.tracks)}}}))
 
 ;; Songs -----------------------------------------
 
+; Track array is special. Must be in order
+; Track1 Track2 Track3 Master Send1 Send2 ...
+
+(fn song-find-master-track-ix [obj]
+  (local tracks (. obj :tracks))
+  (var ix 1)
+  (var search true)
+  (while search
+    (local track (. tracks ix))
+    (if (= track.type renoise.Track.TRACK_TYPE_MASTER)
+        (set search false)
+        (set ix (+ ix 1))))
+  ix)
+
+(fn song-get-master-track [obj]
+  (local mix (song-find-master-track-ix obj))
+  (: obj :track mix))
+
+(fn song-get-sequ-tracks [obj]
+  (local mix (song-find-master-track-ix obj))
+  (local t {})
+  (for [ix 1 (- mix 1)] (tset t ix (: obj :track ix)))
+  t)
+
+(fn song-lookup-sequ-track [obj ix]
+  (local mix (song-find-master-track-ix obj))
+  (if (< ix mix) (: obj :track ix) nil))
+
+(fn song-insert-sequ-track [obj ix]
+  (: obj :insert_track_at ix))
+
+(fn song-delete-sequ-track [obj ix]
+  (: obj :delete_track_at ix))
+
+(fn song-get-send-tracks [obj]
+  (local len (length obj.tracks))
+  (local mix (song-find-master-track-ix obj))
+  (local t {})
+  (for [ix 1 (- len mix)]
+    (tset t ix (: obj :track (+ ix mix))))
+  t)
+
+(fn song-lookup-send-track [obj ix]
+  (local mix (song-find-master-track-ix obj))
+  (: obj :track (+ ix mix)))
+
+(fn song-insert-send-track [obj ix]
+  (local mix (song-find-master-track-ix obj))
+  (: obj :insert_track_at (+ ix mix)))
+
+(fn song-delete-send-track [obj ix]
+  (local mix (song-find-master-track-ix obj))
+  (: obj :delete_track_at (+ ix mix)))
+
 (local song-mk
        (obj-proxy-mk {:attrs [:file_name]
+                      :vars [:name]
                       :methods {:render (fn [obj fname] (: obj :render fname))}
                       :children {:sequencer {:wrap sequ-mk
                                              :get (fn [obj] obj.sequencer)}
+                                 :patterns {:wrap pat-mk
+                                            :get (fn [obj] obj.patterns)
+                                            :array {:lookup (fn [obj ix]
+                                                              (: obj :pattern
+                                                                 ix))}}
+                                 :master_track {:wrap track-mk
+                                                :get song-get-master-track}
+                                 :sequ_tracks {:wrap track-mk
+                                               :get song-get-sequ-tracks
+                                               :array {:minlen 1
+                                                       :lookup song-lookup-sequ-track
+                                                       :insert song-insert-sequ-track
+                                                       :delete song-delete-sequ-track}}
+                                 :send_tracks {:wrap track-mk
+                                               :get song-get-send-tracks
+                                               :array {:lookup song-lookup-send-track
+                                                       :insert song-insert-send-track
+                                                       :delete song-delete-send-track}}
                                  :instruments {:wrap inst-mk
                                                :get (fn [obj] obj.instruments)
-                                               :array { :minlen 1
-                                                        :lookup (fn [obj ix]
+                                               :array {:minlen 1
+                                                       :lookup (fn [obj ix]
                                                                  (: obj
                                                                     :instrument
                                                                     ix))
-                                                         :insert (fn [obj ix]
-                                                                   (: obj
-                                                                      :insert_instrument_at
-                                                                      ix))
-                                                         :delete (fn [obj ix]
-                                                                   (: obj
-                                                                      :delete_instrument_at
-                                                                      ix))}}}}))
+                                                       :insert (fn [obj ix]
+                                                                 (: obj
+                                                                    :insert_instrument_at
+                                                                    ix))
+                                                       :delete (fn [obj ix]
+                                                                 (: obj
+                                                                    :delete_instrument_at
+                                                                    ix))}}}}))
 
 (local song (song-mk (fn [] (renoise.song))))
 
+(fn song-reset! []
+  (song.sequ_tracks.__resize)
+  (song.send_tracks.__resize)
+  (song.instruments.__resize))
+
+; ((. (. song.instruments 0) :clear)))
+
 ;; Exports ---------------------------------------
 
-{: song }
+{: song : song-reset!}
