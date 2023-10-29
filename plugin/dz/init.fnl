@@ -4,13 +4,13 @@
   (fn [ofn]
     (fn rawLen [obj] (length (defn.get (ofn))))
 
-    (fn index [key]
+    (local prox {})
+
+    (fn prox.__index [key]
       (local len (rawLen (ofn)))
       (if (and (= (type key) "number") (> key 0) (<= key len))
         (defn.wrap (fn [] (defn.array.lookup (ofn) key)))
         nil))
-
-    (local prox {})
 
     (fn prox.__len [] (rawLen (ofn)))
 
@@ -19,33 +19,46 @@
       (fn it [sub i]
         (local j (+ i 1))
         (if (< i len) 
-          (values j (index j))
+          (values j (prox.__index j))
           nil))
       (values it {} 0)) 
 
     (fn prox.__tojson []
       (icollect [_ v (ipairs (defn.get (ofn)))] (tojson (defn.wrap (fn [] v)))))
 
-    (fn prox.append []
+    (fn prox.__fromjson [t]
+      (local tlen (length t))
+      (prox.__resize tlen)
+      (for [ix 1 tlen] ((. (prox.__index ix) :__fromjson) (. t ix))))
+
+    (fn prox.__alloc []
       (local obj (ofn))
       (local ix (+ 1 (rawLen obj)))
       (defn.array.insert obj ix)
-      (index ix))
+      (prox.__index ix))
 
-    (fn prox.clear []
+    (fn prox.__resize [?size]
+      (local size (case ?size nil 0 l l))
+      (local mn (case defn.array.minlen nil 0 l l))
+      (local goal (if (> mn size) mn size))
       (local obj (ofn))
       (local len (rawLen obj))
-      (if (> len 1)
-        (for [ix (rawLen obj) 1 -1]
-          (defn.array.delete obj ix))))
+      (if (< len goal) 
+          (do
+            (var ix len)
+            (while (< ix goal) (defn.array.insert obj ix) (set ix (+ ix 1))))
+          (> len goal)
+          (do
+            (var ix len)
+            (while (> ix goal) (defn.array.delete obj ix) (set ix (- ix 1))))))
 
     (setmetatable prox
                   {:__metatable false
                    :__tostring (fn [_] (show t))
                    :__ipairs (fn [_] (prox.__iter))
                    :__len (fn [_] (prox.__len))
-                   :__index (fn [_ key] (index key))
-                   :__newindex (fn [_ _ _] (error "Use append/clear"))})))
+                   :__index (fn [_ key] (prox.__index key))
+                   :__newindex (fn [_ _ _] (error "Use __alloc/__resize"))})))
 
 (fn obj-add-getter [key t]
   (tset t key (fn [obj] (. obj key))))
@@ -77,7 +90,10 @@
           nil nil
           g (g (ofn)))))
 
-    (fn index [key]
+    (local prox (collect [key func (pairs (or defn.methods []))]
+                  (values key (fn [...] (func (ofn) ...)))))
+
+    (fn prox.__index [key]
       (let [mgr (run-getter key)]
         (case mgr
           nil (let [mcr (. children key)]
@@ -86,14 +102,11 @@
                   cr cr))
           gr gr)))
 
-    (fn newindex [key val]
+    (fn prox.__newindex [key val]
       (let [ms (. setters key)]
         (case ms
           nil (error (.. "Invalid assignment: " key))
-          _ (s (ofn) val))))
-
-    (local prox (collect [key func (pairs (or defn.methods []))]
-                  (values key (fn [...] (func (ofn) ...)))))
+          s (s (ofn) val))))
 
     (fn prox.__tojson []
       (local obj (ofn))
@@ -104,11 +117,22 @@
         (tset t key (tojson child)))
       t)
 
+    (fn prox.__fromjson [t]
+      (local obj (ofn))
+      (each [key setter (pairs setters)]
+        (case (. t key)
+          nil nil
+          val (setter obj val)))
+      (each [key child (pairs children)]
+        (case (. t key)
+          nil nil
+          val (child.__fromjson val))))
+
     (setmetatable prox
                   {:__metatable false
                    :__tostring (fn [_] (show t))
-                   :__index (fn [_ key] (index key))
-                   :__newindex (fn [_ key val] (newindex key val))})))
+                   :__index (fn [_ key] (prox.__index key))
+                   :__newindex (fn [_ key val] (prox.__newindex key val))})))
 
 ;; Sequencer -----------------------------------------
 
@@ -159,18 +183,19 @@
                                              :get (fn [obj] obj.sequencer)}
                                  :instruments {:wrap inst-mk
                                                :get (fn [obj] obj.instruments)
-                                               :array {:lookup (fn [obj ix]
+                                               :array { :minlen 1
+                                                        :lookup (fn [obj ix]
                                                                  (: obj
                                                                     :instrument
                                                                     ix))
-                                                       :insert (fn [obj ix]
-                                                                 (: obj
-                                                                    :insert_instrument_at
-                                                                    ix))
-                                                       :delete (fn [obj ix]
-                                                                 (: obj
-                                                                    :delete_instrument_at
-                                                                    ix))}}}}))
+                                                         :insert (fn [obj ix]
+                                                                   (: obj
+                                                                      :insert_instrument_at
+                                                                      ix))
+                                                         :delete (fn [obj ix]
+                                                                   (: obj
+                                                                      :delete_instrument_at
+                                                                      ix))}}}}))
 
 (local song (song-mk (fn [] (renoise.song))))
 

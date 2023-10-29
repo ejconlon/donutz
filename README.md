@@ -6,7 +6,7 @@ A Fennel-based environment for algorithmic composition
 
 This project is based on [8fl](https://git.sr.ht/~nasser/8fl), using some
 of the same interfaces, concepts, and utility functions, but with a
-generally different implementation.
+generally different implementation. Check it out!
 
 ## Installation and Use
 
@@ -23,6 +23,8 @@ However, you will probably enjoy the experience more with `socat`:
 
     socat READLINE,history=$HOME/.telnet_history TCP:127.0.0.1:9876
 
+(You may need to install `socat` from your OS package manager.)
+
 ## Neovim setup
 
 First add a custom filetype
@@ -33,7 +35,7 @@ vim.filetype.add {
     dz = function(path, bufnr)
       return 'donutz',
         function(bufnr)
-          vim.api.nvim_buf_set_option(0, 'commentstring', ';; %s')
+          vim.api.nvim_buf_set_option(0, 'commentstring', '; %s')
         end
     end,
   },
@@ -71,6 +73,6 @@ It contains vendored poritions of the Fennel
 language source code, which is also [MIT-licensed](
 https://github.com/bakpakin/Fennel/blob/main/LICENSE).
 
-It also contains portions of the 8fl project source code, which has some
-don't-be-evil license, so don't be evil.
+It also contains snippets of the 8fl project source code, which has a
+don't-be-evil license, so don't be evil!
 

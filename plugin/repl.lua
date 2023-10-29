@@ -62,7 +62,7 @@ function show(obj)
   end
 end
 
---- Return a custom table from an object
+--- Convert an object to a JSON-able AST
 function tojson(obj)
   if type(obj) == 'table' then
     if obj.__tojson ~= nil then
