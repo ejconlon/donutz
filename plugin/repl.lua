@@ -2,6 +2,9 @@
 -- feed input (e.g. from a socket) from lua.
 -- @module repl
 
+-- TODO remove
+local debug = false
+
 local fennel = require('fennel')
 local view = require('fennelview')
 local splice = require('vendor.splice')
@@ -161,6 +164,7 @@ function mkEnv(write, config)
     pcall = pcall,
     xpcall = xpcall,
     error = error,
+    next = next,
     getmetatable = getmetatable,
     setmetatable = setmetatable,
     show = show,
@@ -222,12 +226,14 @@ end
 
 --- Evaluate fennel code in the given context
 function rawEval(write, env, buf, scope, shouldSplice, source)
-  -- write('0>>>>>>>>>>>\n')
-  -- write(buf)
-  -- write('\n')
-  -- write('0<<<<<<<<<<<\n')
+  if debug then
+    write('0>>>>>>>>>>>\n')
+    write(buf)
+    write('\n')
+    write('0<<<<<<<<<<<\n')
+  end
 
-  local ok, code = pcall(fennel.compileString, buf, { scope = scope, useMetadata = true })
+  local ok, code = pcall(fennel.compileString, buf, { scope = scope, useMetadata = false })
   if not ok then
     error('Failed to compile ' .. code)
   end
@@ -239,10 +245,12 @@ function rawEval(write, env, buf, scope, shouldSplice, source)
     spliced = code
   end
 
-  -- write('1>>>>>>>>>>>\n')
-  -- write(spliced)
-  -- write('\n')
-  -- write('1<<<<<<<<<<<\n')
+  if debug then
+    write('1>>>>>>>>>>>\n')
+    write(spliced)
+    write('\n')
+    write('1<<<<<<<<<<<\n')
+  end
 
   local f, err
   if _G.loadstring then
@@ -257,10 +265,12 @@ function rawEval(write, env, buf, scope, shouldSplice, source)
     error('Failed to load ' .. spliced .. ' error: ' .. err)
   end
 
-  -- write('2>>>>>>>>>>>\n')
-  -- write(show(f))
-  -- write('\n')
-  -- write('2<<<<<<<<<<<\n')
+  if debug then
+    write('2>>>>>>>>>>>\n')
+    write(show(f))
+    write('\n')
+    write('2<<<<<<<<<<<\n')
+  end
 
   local ok, result = pcall(f)
   if not ok then
