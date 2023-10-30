@@ -28,10 +28,10 @@ function isArray(obj)
 end
 
 --- Show structured values better
-function show(obj)
+function show(obj, opts)
   if type(obj) == 'table' then
     if obj.__tojson ~= nil then 
-      return show(obj.__tojson())
+      return show(obj.__tojson(opts))
     elseif isArray(obj) then
       local output = '['
       local first = true
@@ -41,7 +41,7 @@ function show(obj)
         else
           output = output .. ' '
         end
-        output = output .. show(v) 
+        output = output .. show(v, opts) 
       end
       return output .. ']'
     else
@@ -53,7 +53,7 @@ function show(obj)
         else
           output = output .. ' '
         end
-        output = output .. show(k) .. ' ' .. show(v)
+        output = output .. show(k, opts) .. ' ' .. show(v, opts)
       end
       return output .. '}'
     end
@@ -63,20 +63,20 @@ function show(obj)
 end
 
 --- Convert an object to a JSON-able AST
-function tojson(obj)
+function tojson(obj, opts)
   if type(obj) == 'table' then
     if obj.__tojson ~= nil then
-      return obj.__tojson()
+      return obj.__tojson(opts)
     elseif isArray(obj) then
       local t = {}
       for k, v in ipairs(obj) do
-        t[k] = tojson(v)
+        t[k] = tojson(v, opts)
       end
       return t
     else
       local t = {}
       for k, v in pairs(obj) do
-        t[k] = tojson(v)
+        t[k] = tojson(v, opts)
       end
       return t
     end

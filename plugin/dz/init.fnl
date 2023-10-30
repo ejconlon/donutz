@@ -3,55 +3,53 @@
 (fn arr-proxy-mk [defn]
   (fn [ofn]
     (fn rawLen [obj]
-      (length (defn.get (ofn))))
+      (length (defn.get obj)))
 
-    (local prox {})
-
-    (fn prox.__index [key]
-      (local len (rawLen (ofn)))
+    (fn rawIndex [obj len key]
       (if (and (= (type key) :number) (> key 0) (<= key len))
-          (defn.wrap (fn [] (defn.array.lookup (ofn) key)))
+          (defn.wrap (fn [] (defn.array.lookup obj key)))
           nil))
 
-    (fn prox.__newindex [key val]
-      (error "Use __alloc/__resize"))
-
-    (fn prox.__len [] (rawLen (ofn)))
-
-    (fn prox.__iter []
-      (local len (rawLen (ofn)))
+    (fn rawIter [obj]
+      (local len (rawLen obj))
 
       (fn it [sub i]
         (local j (+ i 1))
         (if (< i len)
-            (values j (prox.__index j))
+            (values j (rawIndex obj len j))
             nil))
 
       (values it {} 0))
 
-    (fn prox.__tojson []
+    (local prox {})
+
+    (fn prox.__len [] (rawLen (ofn)))
+
+    (fn prox.__index [key]
+      (local obj (ofn))
+      (local len (rawLen obj))
+      (rawIndex obj len key))
+
+    (fn prox.__newindex [key val]
+      (error "Use __alloc/__resize"))
+
+    (fn prox.__iter [] (rawIter (ofn)))
+
+    (fn prox.__tojson [?opts]
       (icollect [_ v (ipairs (defn.get (ofn)))]
-        (tojson (defn.wrap (fn [] v))))) ; If no insert/delete functions, is immutable array view
+        (tojson (defn.wrap (fn [] v)) ?opts)))
+
+    ; If no insert/delete functions, is array view
     (if (= defn.array.insert nil)
         (do
+          (fn prox.__reset [] nil)
+
           (fn prox.__fromjson [_] nil))
         (do
-          (fn prox.__fromjson [t]
-            (local tlen (length t))
-            (prox.__resize tlen)
-            (for [ix 1 tlen]
-              ((. (prox.__index ix) :__fromjson) (. t ix))))
-          (fn prox.__alloc []
-            (local obj (ofn))
-            (local ix (+ 1 (rawLen obj)))
-            (defn.array.insert obj ix)
-            (prox.__index ix))
-
-          (fn prox.__resize [?size]
+          (fn rawResize [obj ?size]
             (local size (case ?size nil 0 l l))
             (local mn (case defn.array.minlen nil 0 l l))
             (local goal (if (> mn size) mn size))
-            (local obj (ofn))
             (local len (rawLen obj))
             (if (< len goal)
                 (do
@@ -62,7 +60,32 @@
                 (do
                   (var ix len)
                   (while (> ix goal) (defn.array.delete obj ix)
-                    (set ix (- ix 1))))))))
+                    (set ix (- ix 1))))))
+
+          (fn prox.__resize [?size] (rawResize (ofn) ?size))
+
+          (fn prox.__reset []
+            (local obj (ofn))
+            (rawResize obj)
+            (each [k child (rawIter obj)]
+              (child.__reset)))
+
+          (fn prox.__fromjson [t]
+            (local obj (ofn))
+            (local tlen (length t))
+            (rawResize obj tlen)
+            (local len (rawLen obj))
+            (for [ix 1 tlen]
+              (local sub (rawIndex obj len ix))
+              (local u (. t ix))
+              (sub.__fromjson u)))
+
+          (fn prox.__alloc []
+            (local obj (ofn))
+            (local newLen (+ 1 (rawLen obj)))
+            (defn.array.insert obj newLen)
+            (rawIndex obj newLen newLen))))
+
     (setmetatable prox
                   {:__metatable false
                    :__tostring (fn [_] (show t))
@@ -119,13 +142,19 @@
           nil (error (.. "Invalid assignment: " key))
           s (s (ofn) val))))
 
-    (fn prox.__tojson []
+    (fn prox.__reset []
+      (if (and (~= defn.methods nil) (~= defn.methods.clear nil))
+        (defn.methods.clear (ofn)))
+      (each [k child (pairs children)]
+        (child.__reset)))
+
+    (fn prox.__tojson [?opts]
       (local obj (ofn))
       (local t {})
       (each [key getter (pairs getters)]
-        (tset t key (tojson (getter obj))))
+        (tset t key (tojson (getter obj) ?opts)))
       (each [key child (pairs children)]
-        (tset t key (tojson child)))
+        (tset t key (tojson child ?opts)))
       t)
 
     (fn prox.__fromjson [t]
@@ -300,13 +329,6 @@
 
 (local song (song-mk (fn [] (renoise.song))))
 
-(fn song-reset! []
-  (song.sequ_tracks.__resize)
-  (song.send_tracks.__resize)
-  (song.instruments.__resize))
-
-; ((. (. song.instruments 0) :clear)))
-
 ;; Exports ---------------------------------------
 
-{: song : song-reset!}
+{: song }
