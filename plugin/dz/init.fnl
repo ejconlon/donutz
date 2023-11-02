@@ -39,11 +39,10 @@
       (icollect [_ v (ipairs (defn.get (ofn)))]
         (tojson (defn.wrap (fn [] v)) ?opts)))
 
-    ; If no insert/delete functions, is array view
     (if (= defn.array.insert nil)
+        ; If no insert/delete functions, is array view
         (do
           (fn prox.__reset [] nil)
-
           (fn prox.__fromjson [_] nil))
         (do
           (fn rawResize [obj ?size]
@@ -61,7 +60,6 @@
                   (var ix len)
                   (while (> ix goal) (defn.array.delete obj ix)
                     (set ix (- ix 1))))))
-
           (fn prox.__resize [?size] (rawResize (ofn) ?size))
 
           (fn prox.__reset []
@@ -85,7 +83,6 @@
             (local newLen (+ 1 (rawLen obj)))
             (defn.array.insert obj newLen)
             (rawIndex obj newLen newLen))))
-
     (setmetatable prox
                   {:__metatable false
                    :__tostring (fn [_] (show t))
@@ -143,8 +140,8 @@
           s (s (ofn) val))))
 
     (fn prox.__reset []
-      (if (and (~= defn.methods nil) (~= defn.methods.clear nil))
-        (defn.methods.clear (ofn)))
+      (if (and (not= defn.methods nil) (not= defn.methods.clear nil))
+          (defn.methods.clear (ofn)))
       (each [k child (pairs children)]
         (child.__reset)))
 
@@ -221,15 +218,53 @@
                                 :unmute (fn [obj] (: obj :unmute))
                                 :solo (fn [obj] (: obj :solo))}}))
 
+;; Note Column ---------------------------------------
+
+(local notecol-mk (obj-proxy-mk {}))
+
+;; Effect Column ---------------------------------------
+
+(local effcol-mk (obj-proxy-mk {}))
+
+;; Pattern Lines ---------------------------------
+
+(local pline-mk
+       (obj-proxy-mk {:attrs [:is_empty]
+                      :children {:note_columns {:wrap notecol-mk
+                                                :get (fn [obj] obj.note_columns)
+                                                :array {:lookup (fn [obj ix]
+                                                                  (: obj
+                                                                     :note_column
+                                                                     ix))}}
+                                 :effect_columns {:wrap effcol-mk
+                                                  :get (fn [obj]
+                                                         obj.effect_columns)
+                                                  :array {:lookup (fn [obj ix]
+                                                                    (: obj
+                                                                       :effect_column
+                                                                       ix))}}}
+                      :methods {:clear (fn [obj] (: obj :clear))}}))
+
 ;; Pattern Tracks ---------------------------------
 
-(local ptrack-mk (obj-proxy-mk {}))
+(local ptrack-mk
+       (obj-proxy-mk {:attrs [:is_empty]
+                      :methods {:clear (fn [obj] (: obj :clear))}
+                      :children {:lines {:wrap pline-mk
+                                         :get (fn [obj] obj.lines)
+                                         :array {:lookup (fn [obj ix]
+                                                           (: obj :line ix))}}}}))
 
 ;; Patterns ---------------------------------------
 
 (local pat-mk
-       (obj-proxy-mk {:children {:tracks {:wrap ptrack-mk
-                                          :get (fn [obj] obj.tracks)}}}))
+       (obj-proxy-mk {:attrs [:is_empty]
+                      :vars [:name :number_of_lines]
+                      :methods {:clear (fn [obj] (: obj :clear))}
+                      :children {:tracks {:wrap ptrack-mk
+                                          :get (fn [obj] obj.tracks)
+                                          :array {:lookup (fn [obj ix]
+                                                            (: obj :track ix))}}}}))
 
 ;; Songs -----------------------------------------
 
@@ -331,4 +366,4 @@
 
 ;; Exports ---------------------------------------
 
-{: song }
+{: song}
